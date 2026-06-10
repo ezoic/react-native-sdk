@@ -17,4 +17,9 @@ Pod::Spec.new do |s|
   s.private_header_files = "ios/**/*.h"
 
   install_modules_dependencies(s)
+
+  # Native Ezoic Ads SDK (vends the `EzoicAdsSDKBinary` module). Brings in
+  # PrebidMobile + Google-Mobile-Ads-SDK transitively.
+  s.dependency "EzoicAdsSDK", "~> 1.0"
+  s.swift_version = "5.9"
 end

@@ -64,4 +64,9 @@ android {
 
 dependencies {
   implementation "com.facebook.react:react-android"
+
+  // Native Ezoic Ads SDK (resolved from Maven Central). Brings in Google Mobile
+  // Ads + Prebid transitively. Requires mavenCentral() + google() in the
+  // consuming app's repositories (the RN template provides both).
+  implementation "com.ezoic.sdk:ezoic-ads-sdk:1.0.0"
 }

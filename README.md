@@ -18,7 +18,18 @@ for iOS (`EzoicAdsSDK`, via CocoaPods) and Android
 npm install @ezoic/react-native-sdk
 ```
 
-Then install pods for iOS:
+### iOS
+
+The native `EzoicAdsSDK` ships as a binary Swift framework that depends on
+`PrebidMobile` (a Swift source pod). Consuming a binary Swift framework with
+Swift dependencies requires framework-based linkage, so your app's `Podfile`
+must enable static frameworks:
+
+```ruby
+use_frameworks! :linkage => :static
+```
+
+Then install pods:
 
 ```sh
 cd ios && RCT_NEW_ARCH_ENABLED=1 pod install

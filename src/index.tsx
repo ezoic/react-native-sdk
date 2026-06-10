@@ -1,1 +1,1 @@
-export { multiply } from './multiply';
+export type { EzoicConfig } from './NativeEzoicAds';

@@ -13,8 +13,9 @@ name: Publish to npm
 #        Organization or user: ezoic
 #        Repository:           react-native-sdk
 #        Workflow filename:    publish.yml
-#        Environment name:     (leave blank)
+#        Environment name:     release
 #      All fields are case-sensitive; a mismatch fails publish with E404.
+#      The job below sets `environment: release` so the OIDC claim matches.
 #
 # Release: bump the version, then push a matching SemVer tag, e.g.
 #   git tag v1.0.0 && git push origin v1.0.0
@@ -29,6 +30,8 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Must match the "Environment name" in the npm Trusted Publisher config.
+    environment: release
     permissions:
       contents: read
       id-token: write # Required for npm Trusted Publishing (OIDC)

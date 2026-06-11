@@ -4,6 +4,11 @@ import EzoicBannerNative from './EzoicBannerViewNativeComponent';
 import { coerceAdUnitId, normalizeConfig, normalizeSize } from './helpers';
 
 export type { EzoicConfig };
+export {
+  EzoicRewardedAd,
+  type EzoicReward,
+  type EzoicRewardedAdListeners,
+} from './EzoicRewardedAd';
 
 export const EzoicAds = {
   initialize(config: EzoicConfig): Promise<void> {

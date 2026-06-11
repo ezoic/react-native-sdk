@@ -28,3 +28,22 @@ export function normalizeSize(size: string | undefined): string {
 export function coerceAdUnitId(adUnitIdentifier: string): string {
   return String(adUnitIdentifier);
 }
+
+export interface RewardResultLike {
+  earned: boolean;
+  type: string;
+  amount: number;
+}
+
+/**
+ * Maps the native `showRewardedAd` result to the public reward shape: the
+ * `{ type, amount }` reward when earned, otherwise `null` (dismissed unearned).
+ */
+export function mapRewardResult(
+  result: RewardResultLike | null | undefined
+): { type: string; amount: number } | null {
+  if (result && result.earned) {
+    return { type: result.type, amount: result.amount };
+  }
+  return null;
+}

@@ -1,16 +1,36 @@
 package com.ezoic.reactnative
 
 import android.app.Application
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.WritableMap
+import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.ezoic.ads.sdk.adunits.EzoicReward
+import com.ezoic.ads.sdk.adunits.EzoicRewardedAd
+import com.ezoic.ads.sdk.adunits.EzoicRewardedAdListener
+import com.ezoic.ads.sdk.adunits.EzoicRewardedAdListenerAdapter
 import com.ezoic.ads.sdk.core.EzoicAds
 import com.ezoic.ads.sdk.core.EzoicConfiguration
+import com.ezoic.ads.sdk.core.EzoicError
+import java.util.concurrent.ConcurrentHashMap
 
 class EzoicAdsModule(reactContext: ReactApplicationContext) :
   NativeEzoicAdsSpec(reactContext) {
 
   override fun getName() = NAME
+
+  /** Loaded rewarded ads awaiting `show`, keyed by ad unit id. */
+  private val rewardedAds = ConcurrentHashMap<Int, EzoicRewardedAd>()
+
+  /** In-flight `show` calls, keyed by ad unit id. */
+  private val pendingShows = ConcurrentHashMap<Int, RewardShow>()
+
+  private class RewardShow(val promise: Promise) {
+    @Volatile var settled = false
+    @Volatile var reward: EzoicReward? = null
+  }
 
   override fun initialize(config: ReadableMap, promise: Promise) {
     val domain = if (config.hasKey("domain")) config.getString("domain") else null
@@ -53,10 +73,135 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     EzoicAds.instance.trackPageview { success -> promise.resolve(success) }
   }
 
+  override fun loadRewardedAd(adUnitIdentifier: String, promise: Promise) {
+    val id = adUnitIdentifier.toIntOrNull()
+    if (id == null) {
+      promise.reject("EzoicAds", "Invalid adUnitIdentifier: $adUnitIdentifier")
+      return
+    }
+    EzoicRewardedAd.load(reactApplicationContext, id) { result ->
+      result.onSuccess { ad ->
+        ad.listener = makeListener(adUnitIdentifier)
+        rewardedAds[id] = ad
+        promise.resolve(null)
+      }.onFailure { e ->
+        promise.reject("EzoicAds", e.message ?: "Rewarded ad failed to load", e)
+      }
+    }
+  }
+
+  override fun showRewardedAd(adUnitIdentifier: String, promise: Promise) {
+    val id = adUnitIdentifier.toIntOrNull()
+    val ad = if (id != null) rewardedAds[id] else null
+    if (id == null || ad == null) {
+      promise.reject("EzoicAds", "Rewarded ad not loaded for $adUnitIdentifier")
+      return
+    }
+    val activity = currentActivity
+    if (activity == null) {
+      promise.reject("EzoicAds", "No current Activity to present the rewarded ad")
+      return
+    }
+
+    val show = RewardShow(promise)
+    pendingShows[id] = show
+
+    // Replace the load-time listener with one that also settles the promise on
+    // terminal events (dismiss = resolve, failed-to-show = reject).
+    ad.listener = makeListener(
+      adUnitIdentifier,
+      onDismiss = {
+        rewardedAds.remove(id)
+        val pending = pendingShows.remove(id)
+        if (pending != null && !pending.settled) {
+          pending.settled = true
+          val reward = pending.reward
+          val map = Arguments.createMap()
+          map.putBoolean("earned", reward != null)
+          map.putString("type", reward?.type ?: "")
+          map.putDouble("amount", (reward?.amount ?: 0).toDouble())
+          pending.promise.resolve(map)
+        }
+      },
+      onFailedToShow = { message ->
+        rewardedAds.remove(id)
+        val pending = pendingShows.remove(id)
+        if (pending != null && !pending.settled) {
+          pending.settled = true
+          pending.promise.reject("EzoicAds", message)
+        }
+      }
+    )
+
+    activity.runOnUiThread {
+      ad.show(activity) { reward -> show.reward = reward }
+    }
+  }
+
+  override fun addListener(eventName: String) {
+    // No-op: required by the React Native NativeEventEmitter contract.
+  }
+
+  override fun removeListeners(count: Double) {
+    // No-op: required by the React Native NativeEventEmitter contract.
+  }
+
+  private fun makeListener(
+    adUnitIdentifier: String,
+    onDismiss: (() -> Unit)? = null,
+    onFailedToShow: ((String) -> Unit)? = null
+  ): EzoicRewardedAdListener = object : EzoicRewardedAdListenerAdapter() {
+    override fun onRewardedAdShown(rewardedAd: EzoicRewardedAd) {
+      emitRewardedEvent(adUnitIdentifier, "shown")
+    }
+
+    override fun onRewardedAdFailedToShow(rewardedAd: EzoicRewardedAd, error: EzoicError) {
+      emitRewardedEvent(adUnitIdentifier, "failedToShow") {
+        putString("message", error.message)
+      }
+      onFailedToShow?.invoke(error.message)
+    }
+
+    override fun onRewardedAdImpression(rewardedAd: EzoicRewardedAd) {
+      emitRewardedEvent(adUnitIdentifier, "impression")
+    }
+
+    override fun onRewardedAdClicked(rewardedAd: EzoicRewardedAd) {
+      emitRewardedEvent(adUnitIdentifier, "clicked")
+    }
+
+    override fun onUserEarnedReward(rewardedAd: EzoicRewardedAd, reward: EzoicReward) {
+      emitRewardedEvent(adUnitIdentifier, "reward") {
+        putString("rewardType", reward.type)
+        putDouble("rewardAmount", reward.amount.toDouble())
+      }
+    }
+
+    override fun onRewardedAdDismissed(rewardedAd: EzoicRewardedAd) {
+      emitRewardedEvent(adUnitIdentifier, "dismissed")
+      onDismiss?.invoke()
+    }
+  }
+
+  private fun emitRewardedEvent(
+    adUnitIdentifier: String,
+    type: String,
+    extra: (WritableMap.() -> Unit)? = null
+  ) {
+    val map = Arguments.createMap()
+    map.putString("adUnitIdentifier", adUnitIdentifier)
+    map.putString("type", type)
+    extra?.invoke(map)
+    reactApplicationContext
+      .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+      .emit(REWARDED_EVENT, map)
+  }
+
   private fun ReadableMap.optBool(key: String, default: Boolean): Boolean =
     if (hasKey(key) && !isNull(key)) getBoolean(key) else default
 
   companion object {
     const val NAME = NativeEzoicAdsSpec.NAME
+    private const val REWARDED_EVENT = "EzoicRewardedAdEvent"
   }
 }

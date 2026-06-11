@@ -1,15 +1,44 @@
 #import "EzoicReactNativeSdk.h"
 #import <EzoicReactNativeSdk/EzoicReactNativeSdk-Swift.h>
 
+static NSString *const kEzoicRewardedEvent = @"EzoicRewardedAdEvent";
+
 @implementation EzoicReactNativeSdk {
   EzoicAdsImpl *_impl;
+  BOOL _hasListeners;
 }
 
 - (instancetype)init {
   if (self = [super init]) {
     _impl = [EzoicAdsImpl new];
+    __weak __typeof(self) weakSelf = self;
+    // The Swift impl invokes this for every rewarded lifecycle signal; forward
+    // to JS through RCTEventEmitter (guarded by an active-listener check so we
+    // don't log the "no listeners" warning when nothing is subscribed).
+    _impl.eventEmitter = ^(NSString *name, NSDictionary *body) {
+      __typeof(self) strongSelf = weakSelf;
+      if (strongSelf != nil && strongSelf->_hasListeners) {
+        [strongSelf sendEventWithName:name body:body];
+      }
+    };
   }
   return self;
+}
+
++ (BOOL)requiresMainQueueSetup {
+  return NO;
+}
+
+- (NSArray<NSString *> *)supportedEvents {
+  return @[ kEzoicRewardedEvent ];
+}
+
+- (void)startObserving {
+  _hasListeners = YES;
+}
+
+- (void)stopObserving {
+  _hasListeners = NO;
 }
 
 - (void)initialize:(JS::NativeEzoicAds::EzoicConfig &)config
@@ -41,6 +70,22 @@
 
 - (void)trackPageview:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
   [_impl trackPageview:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)loadRewardedAd:(NSString *)adUnitIdentifier
+               resolve:(RCTPromiseResolveBlock)resolve
+                reject:(RCTPromiseRejectBlock)reject {
+  [_impl loadRewardedAd:adUnitIdentifier
+                resolve:^(id _Nullable v) { resolve(v); }
+                 reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
+}
+
+- (void)showRewardedAd:(NSString *)adUnitIdentifier
+               resolve:(RCTPromiseResolveBlock)resolve
+                reject:(RCTPromiseRejectBlock)reject {
+  [_impl showRewardedAd:adUnitIdentifier
+                resolve:^(id _Nullable v) { resolve(v); }
+                 reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

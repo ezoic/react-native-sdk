@@ -1,5 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
-import { normalizeConfig, normalizeSize, coerceAdUnitId } from '../helpers';
+import {
+  normalizeConfig,
+  normalizeSize,
+  coerceAdUnitId,
+  mapRewardResult,
+} from '../helpers';
 
 describe('normalizeConfig', () => {
   it('passes through domain and defaults nothing it should not', () => {
@@ -36,5 +41,20 @@ describe('coerceAdUnitId', () => {
   });
   it('coerces a number to string', () => {
     expect(coerceAdUnitId(12345 as unknown as string)).toBe('12345');
+  });
+});
+
+describe('mapRewardResult', () => {
+  it('returns the reward when earned', () => {
+    expect(
+      mapRewardResult({ earned: true, type: 'coins', amount: 10 })
+    ).toEqual({ type: 'coins', amount: 10 });
+  });
+  it('returns null when not earned', () => {
+    expect(mapRewardResult({ earned: false, type: '', amount: 0 })).toBeNull();
+  });
+  it('returns null for missing result', () => {
+    expect(mapRewardResult(null)).toBeNull();
+    expect(mapRewardResult(undefined)).toBeNull();
   });
 });

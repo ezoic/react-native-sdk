@@ -45,6 +45,12 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     @Volatile var settled = false
   }
 
+  /** Ad unit ids with an in-flight rewarded `load`. */
+  private val loadingRewarded = ConcurrentHashMap.newKeySet<Int>()
+
+  /** Ad unit ids with an in-flight interstitial `load`. */
+  private val loadingInterstitial = ConcurrentHashMap.newKeySet<Int>()
+
   override fun initialize(config: ReadableMap, promise: Promise) {
     val domain = if (config.hasKey("domain")) config.getString("domain") else null
     if (domain.isNullOrEmpty()) {
@@ -92,7 +98,12 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       promise.reject("EzoicAds", "Invalid adUnitIdentifier: $adUnitIdentifier")
       return
     }
+    if (rewardedAds.containsKey(id) || !loadingRewarded.add(id)) {
+      promise.reject("EzoicAds", "An ad is already loaded/loading for ad unit $adUnitIdentifier")
+      return
+    }
     EzoicRewardedAd.load(reactApplicationContext, id) { result ->
+      loadingRewarded.remove(id)
       result.onSuccess { ad ->
         ad.listener = makeListener(adUnitIdentifier)
         rewardedAds[id] = ad
@@ -108,6 +119,10 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     val ad = if (id != null) rewardedAds[id] else null
     if (id == null || ad == null) {
       promise.reject("EzoicAds", "Rewarded ad not loaded for $adUnitIdentifier")
+      return
+    }
+    if (pendingShows.containsKey(id)) {
+      promise.reject("EzoicAds", "A show is already in progress for ad unit $adUnitIdentifier")
       return
     }
     val activity = currentActivity
@@ -157,7 +172,12 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       promise.reject("EzoicAds", "Invalid adUnitIdentifier: $adUnitIdentifier")
       return
     }
+    if (interstitialAds.containsKey(id) || !loadingInterstitial.add(id)) {
+      promise.reject("EzoicAds", "An ad is already loaded/loading for ad unit $adUnitIdentifier")
+      return
+    }
     EzoicInterstitialAd.load(reactApplicationContext, id) { result ->
+      loadingInterstitial.remove(id)
       result.onSuccess { ad ->
         ad.listener = makeInterstitialListener(adUnitIdentifier)
         interstitialAds[id] = ad
@@ -173,6 +193,10 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     val ad = if (id != null) interstitialAds[id] else null
     if (id == null || ad == null) {
       promise.reject("EzoicAds", "Interstitial ad not loaded for $adUnitIdentifier")
+      return
+    }
+    if (pendingInterstitialShows.containsKey(id)) {
+      promise.reject("EzoicAds", "A show is already in progress for ad unit $adUnitIdentifier")
       return
     }
     val activity = currentActivity
@@ -231,6 +255,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     override fun onRewardedAdFailedToShow(rewardedAd: EzoicRewardedAd, error: EzoicError) {
       emitRewardedEvent(adUnitIdentifier, "failedToShow") {
         putString("message", error.message)
+        putInt("code", error.code)
       }
       onFailedToShow?.invoke(error.message)
     }
@@ -282,6 +307,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     override fun onInterstitialAdFailedToShow(interstitialAd: EzoicInterstitialAd, error: EzoicError) {
       emitInterstitialEvent(adUnitIdentifier, "failedToShow") {
         putString("message", error.message)
+        putInt("code", error.code)
       }
       onFailedToShow?.invoke(error.message)
     }

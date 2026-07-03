@@ -11,7 +11,7 @@ export interface EzoicReward {
 /** Lifecycle callbacks for a rewarded ad. All are optional. */
 export interface EzoicRewardedAdListeners {
   onShown?: () => void;
-  onFailedToShow?: (error: { message: string }) => void;
+  onFailedToShow?: (error: { message: string; code?: number }) => void;
   onImpression?: () => void;
   onClicked?: () => void;
   onDismissed?: () => void;
@@ -31,6 +31,7 @@ interface RewardedNativeEvent {
     | 'dismissed'
     | 'reward';
   message?: string;
+  code?: number;
   rewardType?: string;
   rewardAmount?: number;
 }
@@ -113,7 +114,12 @@ export class EzoicRewardedAd {
         this.listeners.onShown?.();
         break;
       case 'failedToShow':
-        this.listeners.onFailedToShow?.({ message: event.message ?? '' });
+        this.listeners.onFailedToShow?.({
+          message: event.message ?? '',
+          code: event.code,
+        });
+        // Failure to show is terminal — the native ad is single-use.
+        this.destroy();
         break;
       case 'impression':
         this.listeners.onImpression?.();

@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 jest.mock('../NativeEzoicAds', () => ({
   __esModule: true,
   default: {
-    loadInterstitialAd: jest.fn(() => Promise.resolve()),
-    showInterstitialAd: jest.fn(() => Promise.resolve()),
+    loadRewardedAd: jest.fn(() => Promise.resolve()),
+    showRewardedAd: jest.fn(() =>
+      Promise.resolve({ earned: false, type: '', amount: 0 })
+    ),
   },
 }));
 
@@ -35,28 +37,30 @@ jest.mock('react-native', () => {
 
 import * as RN from 'react-native';
 import NativeEzoicAds from '../NativeEzoicAds';
-import { EzoicInterstitialAd } from '../EzoicInterstitialAd';
+import { EzoicRewardedAd } from '../EzoicRewardedAd';
 
 const emit = (RN as unknown as { __emit: (e: string, p: unknown) => void })
   .__emit;
 const handlerCount = (RN as unknown as { __handlerCount: () => number })
   .__handlerCount;
 
-const loadMock = NativeEzoicAds.loadInterstitialAd as jest.Mock;
-const showMock = NativeEzoicAds.showInterstitialAd as jest.Mock;
+const loadMock = NativeEzoicAds.loadRewardedAd as jest.Mock;
+const showMock = NativeEzoicAds.showRewardedAd as jest.Mock;
 
-const INTERSTITIAL_EVENT = 'EzoicInterstitialAdEvent';
+const REWARDED_EVENT = 'EzoicRewardedAdEvent';
 
 beforeEach(() => {
   loadMock.mockReset();
   showMock.mockReset();
   loadMock.mockImplementation(() => Promise.resolve());
-  showMock.mockImplementation(() => Promise.resolve());
+  showMock.mockImplementation(() =>
+    Promise.resolve({ earned: false, type: '', amount: 0 })
+  );
 });
 
-describe('EzoicInterstitialAd.load', () => {
+describe('EzoicRewardedAd.load', () => {
   it('calls the native load and resolves an instance', async () => {
-    const ad = await EzoicInterstitialAd.load('123');
+    const ad = await EzoicRewardedAd.load('123');
     expect(loadMock).toHaveBeenCalledWith('123');
     expect(ad.adUnitIdentifier).toBe('123');
     ad.destroy();
@@ -65,36 +69,45 @@ describe('EzoicInterstitialAd.load', () => {
   it('destroys the subscription and rethrows when the native load fails', async () => {
     const before = handlerCount();
     loadMock.mockImplementationOnce(() => Promise.reject(new Error('no fill')));
-    await expect(EzoicInterstitialAd.load('123')).rejects.toThrow('no fill');
-    // Failed load must not leak a subscription.
+    await expect(EzoicRewardedAd.load('123')).rejects.toThrow('no fill');
     expect(handlerCount()).toBe(before);
   });
 });
 
-describe('EzoicInterstitialAd.show', () => {
-  it('calls the native show and resolves void', async () => {
-    const ad = await EzoicInterstitialAd.load('123');
-    await expect(ad.show()).resolves.toBeUndefined();
+describe('EzoicRewardedAd.show', () => {
+  it('maps an earned reward result', async () => {
+    showMock.mockImplementationOnce(() =>
+      Promise.resolve({ earned: true, type: 'coins', amount: 5 })
+    );
+    const ad = await EzoicRewardedAd.load('123');
+    await expect(ad.show()).resolves.toEqual({ type: 'coins', amount: 5 });
     expect(showMock).toHaveBeenCalledWith('123');
     ad.destroy();
   });
 
+  it('resolves null when the ad was dismissed unearned', async () => {
+    const ad = await EzoicRewardedAd.load('123');
+    await expect(ad.show()).resolves.toBeNull();
+    ad.destroy();
+  });
+
   it('rejects when the native show rejects', async () => {
-    const ad = await EzoicInterstitialAd.load('123');
+    const ad = await EzoicRewardedAd.load('123');
     showMock.mockImplementationOnce(() => Promise.reject(new Error('boom')));
     await expect(ad.show()).rejects.toThrow('boom');
     ad.destroy();
   });
 });
 
-describe('EzoicInterstitialAd event routing', () => {
+describe('EzoicRewardedAd event routing', () => {
   it('routes each lifecycle event to the matching instance callback', async () => {
-    const ad = await EzoicInterstitialAd.load('123');
+    const ad = await EzoicRewardedAd.load('123');
 
     let shown = false;
     let impression = false;
     let clicked = false;
-    let failedMessage: string | null = null;
+    let reward: { type: string; amount: number } | null = null;
+    let failed: { message: string; code?: number } | null = null;
 
     ad.setListeners({
       onShown: () => {
@@ -106,30 +119,35 @@ describe('EzoicInterstitialAd event routing', () => {
       onClicked: () => {
         clicked = true;
       },
+      onUserEarnedReward: (r) => {
+        reward = r;
+      },
       onFailedToShow: (error) => {
-        failedMessage = error.message;
+        failed = error;
       },
     });
 
-    emit(INTERSTITIAL_EVENT, { adUnitIdentifier: '123', type: 'shown' });
-    emit(INTERSTITIAL_EVENT, { adUnitIdentifier: '123', type: 'impression' });
-    emit(INTERSTITIAL_EVENT, { adUnitIdentifier: '123', type: 'clicked' });
-    emit(INTERSTITIAL_EVENT, {
+    emit(REWARDED_EVENT, { adUnitIdentifier: '123', type: 'shown' });
+    emit(REWARDED_EVENT, { adUnitIdentifier: '123', type: 'impression' });
+    emit(REWARDED_EVENT, { adUnitIdentifier: '123', type: 'clicked' });
+    emit(REWARDED_EVENT, {
       adUnitIdentifier: '123',
-      type: 'failedToShow',
-      message: 'bad',
+      type: 'reward',
+      rewardType: 'gems',
+      rewardAmount: 3,
     });
 
     expect(shown).toBe(true);
     expect(impression).toBe(true);
     expect(clicked).toBe(true);
-    expect(failedMessage).toBe('bad');
+    expect(reward).toEqual({ type: 'gems', amount: 3 });
+    expect(failed).toBeNull();
 
     ad.destroy();
   });
 
   it('ignores events addressed to a different ad unit', async () => {
-    const ad = await EzoicInterstitialAd.load('123');
+    const ad = await EzoicRewardedAd.load('123');
     let shown = false;
     ad.setListeners({
       onShown: () => {
@@ -137,14 +155,14 @@ describe('EzoicInterstitialAd event routing', () => {
       },
     });
 
-    emit(INTERSTITIAL_EVENT, { adUnitIdentifier: '999', type: 'shown' });
+    emit(REWARDED_EVENT, { adUnitIdentifier: '999', type: 'shown' });
     expect(shown).toBe(false);
 
     ad.destroy();
   });
 
   it('surfaces the error code and auto-destroys on failedToShow', async () => {
-    const ad = await EzoicInterstitialAd.load('123');
+    const ad = await EzoicRewardedAd.load('123');
     const before = handlerCount();
 
     let failed: { message: string; code?: number } | null = null;
@@ -158,7 +176,7 @@ describe('EzoicInterstitialAd event routing', () => {
       },
     });
 
-    emit(INTERSTITIAL_EVENT, {
+    emit(REWARDED_EVENT, {
       adUnitIdentifier: '123',
       type: 'failedToShow',
       message: 'boom',
@@ -168,12 +186,12 @@ describe('EzoicInterstitialAd event routing', () => {
     // Auto-destroy on failedToShow removes the subscription.
     expect(handlerCount()).toBe(before - 1);
 
-    emit(INTERSTITIAL_EVENT, { adUnitIdentifier: '123', type: 'shown' });
+    emit(REWARDED_EVENT, { adUnitIdentifier: '123', type: 'shown' });
     expect(shownAfterFail).toBe(false);
   });
 
   it('auto-destroys on dismissed and drops later events', async () => {
-    const ad = await EzoicInterstitialAd.load('123');
+    const ad = await EzoicRewardedAd.load('123');
     const before = handlerCount();
 
     let dismissed = false;
@@ -187,17 +205,16 @@ describe('EzoicInterstitialAd event routing', () => {
       },
     });
 
-    emit(INTERSTITIAL_EVENT, { adUnitIdentifier: '123', type: 'dismissed' });
+    emit(REWARDED_EVENT, { adUnitIdentifier: '123', type: 'dismissed' });
     expect(dismissed).toBe(true);
-    // Auto-destroy removes the subscription.
     expect(handlerCount()).toBe(before - 1);
 
-    emit(INTERSTITIAL_EVENT, { adUnitIdentifier: '123', type: 'shown' });
+    emit(REWARDED_EVENT, { adUnitIdentifier: '123', type: 'shown' });
     expect(shownAfterDismiss).toBe(false);
   });
 });
 
-describe('EzoicInterstitialAd double-load / double-show guards', () => {
+describe('EzoicRewardedAd double-load / double-show guards', () => {
   it('rejects a second load for an id already loaded/loading', async () => {
     const loaded = new Set<string>();
     loadMock.mockImplementation((...args: unknown[]) => {
@@ -211,15 +228,15 @@ describe('EzoicInterstitialAd double-load / double-show guards', () => {
       return Promise.resolve();
     });
 
-    const ad = await EzoicInterstitialAd.load('123');
-    await expect(EzoicInterstitialAd.load('123')).rejects.toThrow(
+    const ad = await EzoicRewardedAd.load('123');
+    await expect(EzoicRewardedAd.load('123')).rejects.toThrow(
       'already loaded/loading'
     );
     ad.destroy();
   });
 
   it('rejects a second show while the first is in flight; first settles', async () => {
-    const ad = await EzoicInterstitialAd.load('123');
+    const ad = await EzoicRewardedAd.load('123');
 
     let firstInFlight = false;
     let releaseFirst: (() => void) | undefined;
@@ -230,8 +247,8 @@ describe('EzoicInterstitialAd double-load / double-show guards', () => {
         );
       }
       firstInFlight = true;
-      return new Promise<void>((resolve) => {
-        releaseFirst = () => resolve();
+      return new Promise((resolve) => {
+        releaseFirst = () => resolve({ earned: false, type: '', amount: 0 });
       });
     });
 
@@ -239,7 +256,7 @@ describe('EzoicInterstitialAd double-load / double-show guards', () => {
     await expect(ad.show()).rejects.toThrow('already in progress');
 
     releaseFirst?.();
-    await expect(first).resolves.toBeUndefined();
+    await expect(first).resolves.toBeNull();
     ad.destroy();
   });
 });

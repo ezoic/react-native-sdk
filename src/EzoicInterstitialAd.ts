@@ -5,7 +5,7 @@ import { coerceAdUnitId } from './helpers';
 /** Lifecycle callbacks for an interstitial ad. All are optional. */
 export interface EzoicInterstitialAdListeners {
   onShown?: () => void;
-  onFailedToShow?: (error: { message: string }) => void;
+  onFailedToShow?: (error: { message: string; code?: number }) => void;
   onImpression?: () => void;
   onClicked?: () => void;
   onDismissed?: () => void;
@@ -18,6 +18,7 @@ interface InterstitialNativeEvent {
   adUnitIdentifier: string;
   type: 'shown' | 'failedToShow' | 'impression' | 'clicked' | 'dismissed';
   message?: string;
+  code?: number;
 }
 
 // A single shared emitter is sufficient — events are routed to the right
@@ -102,7 +103,12 @@ export class EzoicInterstitialAd {
         this.listeners.onShown?.();
         break;
       case 'failedToShow':
-        this.listeners.onFailedToShow?.({ message: event.message ?? '' });
+        this.listeners.onFailedToShow?.({
+          message: event.message ?? '',
+          code: event.code,
+        });
+        // Failure to show is terminal — the native ad is single-use.
+        this.destroy();
         break;
       case 'impression':
         this.listeners.onImpression?.();

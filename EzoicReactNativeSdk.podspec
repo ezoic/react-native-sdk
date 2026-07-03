@@ -20,6 +20,6 @@ Pod::Spec.new do |s|
 
   # Native Ezoic Ads SDK (vends the `EzoicAdsSDKBinary` module). Brings in
   # PrebidMobile + Google-Mobile-Ads-SDK transitively.
-  s.dependency "EzoicAdsSDK", "~> 1.1"
+  s.dependency "EzoicAdsSDK", "~> 1.2"
   s.swift_version = "5.9"
 end

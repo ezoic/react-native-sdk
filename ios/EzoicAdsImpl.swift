@@ -22,6 +22,21 @@ import EzoicAdsSDKBinary
     }
   }
 
+  /// Loaded interstitial ads awaiting `show`, keyed by ad unit id.
+  private var interstitialAds: [Int: EzoicInterstitialAd] = [:]
+
+  /// In-flight interstitial `show` calls, keyed by ad unit id.
+  private var pendingInterstitialShows: [Int: PendingInterstitialShow] = [:]
+
+  private final class PendingInterstitialShow {
+    let resolve: (Any?) -> Void
+    let reject: (String, String, NSError?) -> Void
+    init(resolve: @escaping (Any?) -> Void, reject: @escaping (String, String, NSError?) -> Void) {
+      self.resolve = resolve
+      self.reject = reject
+    }
+  }
+
   @objc public func initialize(_ config: NSDictionary,
                                resolve: @escaping (Any?) -> Void,
                                reject: @escaping (String, String, NSError?) -> Void) {
@@ -107,6 +122,49 @@ import EzoicAdsSDKBinary
     for (key, value) in extra { body[key] = value }
     eventEmitter?("EzoicRewardedAdEvent", body)
   }
+
+  @objc public func loadInterstitialAd(_ adUnitIdentifier: String,
+                                       resolve: @escaping (Any?) -> Void,
+                                       reject: @escaping (String, String, NSError?) -> Void) {
+    guard let id = Int(adUnitIdentifier) else {
+      reject("EzoicAds", "Invalid adUnitIdentifier: \(adUnitIdentifier)", nil)
+      return
+    }
+    EzoicInterstitialAd.load(adUnitIdentifier: id) { [weak self] result in
+      guard let self = self else { return }
+      switch result {
+      case .success(let ad):
+        ad.delegate = self
+        self.interstitialAds[id] = ad
+        resolve(nil)
+      case .failure(let error):
+        reject("EzoicAds", error.localizedDescription, error as NSError)
+      }
+    }
+  }
+
+  @objc public func showInterstitialAd(_ adUnitIdentifier: String,
+                                       resolve: @escaping (Any?) -> Void,
+                                       reject: @escaping (String, String, NSError?) -> Void) {
+    guard let id = Int(adUnitIdentifier), let ad = interstitialAds[id] else {
+      reject("EzoicAds", "Interstitial ad not loaded for \(adUnitIdentifier)", nil)
+      return
+    }
+    pendingInterstitialShows[id] = PendingInterstitialShow(resolve: resolve, reject: reject)
+    // Native show(from:) has no completion handler, so the show promise is
+    // settled from the delegate (dismiss = resolve, failed-to-present = reject).
+    // Presenting from nil lets GMA use the application's top view controller.
+    ad.show(from: nil)
+  }
+
+  private func emitInterstitial(_ ad: EzoicInterstitialAd, _ type: String, _ extra: [String: Any] = [:]) {
+    var body: [String: Any] = [
+      "adUnitIdentifier": String(ad.adUnitIdentifier),
+      "type": type
+    ]
+    for (key, value) in extra { body[key] = value }
+    eventEmitter?("EzoicInterstitialAdEvent", body)
+  }
 }
 
 // MARK: - EzoicRewardedAdDelegate
@@ -151,6 +209,41 @@ extension EzoicAdsImpl: EzoicRewardedAdDelegate {
         "amount": reward?.amount ?? 0
       ]
       pending.resolve(result)
+    }
+  }
+}
+
+// MARK: - EzoicInterstitialAdDelegate
+
+extension EzoicAdsImpl: EzoicInterstitialAdDelegate {
+
+  public func interstitialAdDidPresent(_ interstitialAd: EzoicInterstitialAd) {
+    emitInterstitial(interstitialAd, "shown")
+  }
+
+  public func interstitialAd(_ interstitialAd: EzoicInterstitialAd, didFailToPresentWithError error: EzoicError) {
+    emitInterstitial(interstitialAd, "failedToShow", ["message": error.localizedDescription])
+    let id = interstitialAd.adUnitIdentifier
+    interstitialAds.removeValue(forKey: id)
+    if let pending = pendingInterstitialShows.removeValue(forKey: id) {
+      pending.reject("EzoicAds", error.localizedDescription, error as NSError)
+    }
+  }
+
+  public func interstitialAdDidRecordImpression(_ interstitialAd: EzoicInterstitialAd) {
+    emitInterstitial(interstitialAd, "impression")
+  }
+
+  public func interstitialAdDidRecordClick(_ interstitialAd: EzoicInterstitialAd) {
+    emitInterstitial(interstitialAd, "clicked")
+  }
+
+  public func interstitialAdDidDismiss(_ interstitialAd: EzoicInterstitialAd) {
+    emitInterstitial(interstitialAd, "dismissed")
+    let id = interstitialAd.adUnitIdentifier
+    interstitialAds.removeValue(forKey: id)
+    if let pending = pendingInterstitialShows.removeValue(forKey: id) {
+      pending.resolve(nil)
     }
   }
 }

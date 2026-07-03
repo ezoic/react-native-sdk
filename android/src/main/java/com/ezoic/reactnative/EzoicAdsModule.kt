@@ -7,6 +7,9 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.ezoic.ads.sdk.adunits.EzoicInterstitialAd
+import com.ezoic.ads.sdk.adunits.EzoicInterstitialAdListener
+import com.ezoic.ads.sdk.adunits.EzoicInterstitialAdListenerAdapter
 import com.ezoic.ads.sdk.adunits.EzoicReward
 import com.ezoic.ads.sdk.adunits.EzoicRewardedAd
 import com.ezoic.ads.sdk.adunits.EzoicRewardedAdListener
@@ -30,6 +33,16 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
   private class RewardShow(val promise: Promise) {
     @Volatile var settled = false
     @Volatile var reward: EzoicReward? = null
+  }
+
+  /** Loaded interstitial ads awaiting `show`, keyed by ad unit id. */
+  private val interstitialAds = ConcurrentHashMap<Int, EzoicInterstitialAd>()
+
+  /** In-flight interstitial `show` calls, keyed by ad unit id. */
+  private val pendingInterstitialShows = ConcurrentHashMap<Int, InterstitialShow>()
+
+  private class InterstitialShow(val promise: Promise) {
+    @Volatile var settled = false
   }
 
   override fun initialize(config: ReadableMap, promise: Promise) {
@@ -138,6 +151,66 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  override fun loadInterstitialAd(adUnitIdentifier: String, promise: Promise) {
+    val id = adUnitIdentifier.toIntOrNull()
+    if (id == null) {
+      promise.reject("EzoicAds", "Invalid adUnitIdentifier: $adUnitIdentifier")
+      return
+    }
+    EzoicInterstitialAd.load(reactApplicationContext, id) { result ->
+      result.onSuccess { ad ->
+        ad.listener = makeInterstitialListener(adUnitIdentifier)
+        interstitialAds[id] = ad
+        promise.resolve(null)
+      }.onFailure { e ->
+        promise.reject("EzoicAds", e.message ?: "Interstitial ad failed to load", e)
+      }
+    }
+  }
+
+  override fun showInterstitialAd(adUnitIdentifier: String, promise: Promise) {
+    val id = adUnitIdentifier.toIntOrNull()
+    val ad = if (id != null) interstitialAds[id] else null
+    if (id == null || ad == null) {
+      promise.reject("EzoicAds", "Interstitial ad not loaded for $adUnitIdentifier")
+      return
+    }
+    val activity = currentActivity
+    if (activity == null) {
+      promise.reject("EzoicAds", "No current Activity to present the interstitial ad")
+      return
+    }
+
+    pendingInterstitialShows[id] = InterstitialShow(promise)
+
+    // Native show(activity) has no completion lambda, so replace the load-time
+    // listener with one that settles the promise on terminal events
+    // (dismiss = resolve, failed-to-show = reject).
+    ad.listener = makeInterstitialListener(
+      adUnitIdentifier,
+      onDismiss = {
+        interstitialAds.remove(id)
+        val pending = pendingInterstitialShows.remove(id)
+        if (pending != null && !pending.settled) {
+          pending.settled = true
+          pending.promise.resolve(null)
+        }
+      },
+      onFailedToShow = { message ->
+        interstitialAds.remove(id)
+        val pending = pendingInterstitialShows.remove(id)
+        if (pending != null && !pending.settled) {
+          pending.settled = true
+          pending.promise.reject("EzoicAds", message)
+        }
+      }
+    )
+
+    activity.runOnUiThread {
+      ad.show(activity)
+    }
+  }
+
   override fun addListener(eventName: String) {
     // No-op: required by the React Native NativeEventEmitter contract.
   }
@@ -197,11 +270,56 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       .emit(REWARDED_EVENT, map)
   }
 
+  private fun makeInterstitialListener(
+    adUnitIdentifier: String,
+    onDismiss: (() -> Unit)? = null,
+    onFailedToShow: ((String) -> Unit)? = null
+  ): EzoicInterstitialAdListener = object : EzoicInterstitialAdListenerAdapter() {
+    override fun onInterstitialAdShown(interstitialAd: EzoicInterstitialAd) {
+      emitInterstitialEvent(adUnitIdentifier, "shown")
+    }
+
+    override fun onInterstitialAdFailedToShow(interstitialAd: EzoicInterstitialAd, error: EzoicError) {
+      emitInterstitialEvent(adUnitIdentifier, "failedToShow") {
+        putString("message", error.message)
+      }
+      onFailedToShow?.invoke(error.message)
+    }
+
+    override fun onInterstitialAdImpression(interstitialAd: EzoicInterstitialAd) {
+      emitInterstitialEvent(adUnitIdentifier, "impression")
+    }
+
+    override fun onInterstitialAdClicked(interstitialAd: EzoicInterstitialAd) {
+      emitInterstitialEvent(adUnitIdentifier, "clicked")
+    }
+
+    override fun onInterstitialAdDismissed(interstitialAd: EzoicInterstitialAd) {
+      emitInterstitialEvent(adUnitIdentifier, "dismissed")
+      onDismiss?.invoke()
+    }
+  }
+
+  private fun emitInterstitialEvent(
+    adUnitIdentifier: String,
+    type: String,
+    extra: (WritableMap.() -> Unit)? = null
+  ) {
+    val map = Arguments.createMap()
+    map.putString("adUnitIdentifier", adUnitIdentifier)
+    map.putString("type", type)
+    extra?.invoke(map)
+    reactApplicationContext
+      .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+      .emit(INTERSTITIAL_EVENT, map)
+  }
+
   private fun ReadableMap.optBool(key: String, default: Boolean): Boolean =
     if (hasKey(key) && !isNull(key)) getBoolean(key) else default
 
   companion object {
     const val NAME = NativeEzoicAdsSpec.NAME
     private const val REWARDED_EVENT = "EzoicRewardedAdEvent"
+    private const val INTERSTITIAL_EVENT = "EzoicInterstitialAdEvent"
   }
 }

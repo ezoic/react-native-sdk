@@ -30,7 +30,9 @@ export interface Spec extends TurboModule {
   trackPageview(): Promise<boolean>;
   loadRewardedAd(adUnitIdentifier: string): Promise<void>;
   showRewardedAd(adUnitIdentifier: string): Promise<EzoicRewardResult>;
-  // Required by NativeEventEmitter for the rewarded ad lifecycle events.
+  loadInterstitialAd(adUnitIdentifier: string): Promise<void>;
+  showInterstitialAd(adUnitIdentifier: string): Promise<void>;
+  // Required by NativeEventEmitter for the ad lifecycle events.
   addListener(eventName: string): void;
   removeListeners(count: number): void;
 }

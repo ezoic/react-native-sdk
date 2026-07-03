@@ -9,6 +9,10 @@ export {
   type EzoicReward,
   type EzoicRewardedAdListeners,
 } from './EzoicRewardedAd';
+export {
+  EzoicInterstitialAd,
+  type EzoicInterstitialAdListeners,
+} from './EzoicInterstitialAd';
 
 export const EzoicAds = {
   initialize(config: EzoicConfig): Promise<void> {

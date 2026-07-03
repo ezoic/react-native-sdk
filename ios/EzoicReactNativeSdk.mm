@@ -2,6 +2,7 @@
 #import <EzoicReactNativeSdk/EzoicReactNativeSdk-Swift.h>
 
 static NSString *const kEzoicRewardedEvent = @"EzoicRewardedAdEvent";
+static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
 
 @implementation EzoicReactNativeSdk {
   EzoicAdsImpl *_impl;
@@ -30,7 +31,7 @@ static NSString *const kEzoicRewardedEvent = @"EzoicRewardedAdEvent";
 }
 
 - (NSArray<NSString *> *)supportedEvents {
-  return @[ kEzoicRewardedEvent ];
+  return @[ kEzoicRewardedEvent, kEzoicInterstitialEvent ];
 }
 
 - (void)startObserving {
@@ -86,6 +87,22 @@ static NSString *const kEzoicRewardedEvent = @"EzoicRewardedAdEvent";
   [_impl showRewardedAd:adUnitIdentifier
                 resolve:^(id _Nullable v) { resolve(v); }
                  reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
+}
+
+- (void)loadInterstitialAd:(NSString *)adUnitIdentifier
+                   resolve:(RCTPromiseResolveBlock)resolve
+                    reject:(RCTPromiseRejectBlock)reject {
+  [_impl loadInterstitialAd:adUnitIdentifier
+                    resolve:^(id _Nullable v) { resolve(v); }
+                     reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
+}
+
+- (void)showInterstitialAd:(NSString *)adUnitIdentifier
+                   resolve:(RCTPromiseResolveBlock)resolve
+                    reject:(RCTPromiseRejectBlock)reject {
+  [_impl showInterstitialAd:adUnitIdentifier
+                    resolve:^(id _Nullable v) { resolve(v); }
+                     reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

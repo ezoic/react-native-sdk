@@ -25,7 +25,7 @@ export function normalizeSize(size: string | undefined): string {
     .join(',');
 }
 
-export function coerceAdUnitId(adUnitIdentifier: string): string {
+export function coerceAdUnitId(adUnitIdentifier: string | number): string {
   return String(adUnitIdentifier);
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "@ezoic/react-native-sdk",
-  "version": "1.2.0",
-  "description": "Ezoic Ads SDK for React Native (Prebid + Google Ad Manager banner, interstitial and rewarded ads).",
+  "version": "1.3.0",
+  "description": "Ezoic Ads SDK for React Native (Prebid + Google Ad Manager banner, native, interstitial and rewarded ads).",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {

@@ -19,7 +19,10 @@ class EzoicReactNativeSdkPackage : BaseReactPackage() {
   override fun createViewManagers(
     reactContext: ReactApplicationContext
   ): List<ViewManager<*, *>> {
-    return listOf(EzoicBannerViewManager(reactContext))
+    return listOf(
+      EzoicBannerViewManager(reactContext),
+      EzoicNativeAdViewManager(reactContext)
+    )
   }
 
   override fun getReactModuleInfoProvider() = ReactModuleInfoProvider {

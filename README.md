@@ -1,11 +1,12 @@
 # @ezoic/react-native-sdk
 
-Ezoic Ads SDK for React Native (Prebid + Google Ad Manager banner ads).
+Ezoic Ads SDK for React Native (Prebid + Google Ad Manager banner, native, interstitial and rewarded ads).
 
 A thin React Native (New Architecture) wrapper over the native Ezoic Ads SDKs
 for iOS (`EzoicAdsSDK`, via CocoaPods) and Android
 (`com.ezoic.sdk:ezoic-ads-sdk`, via Maven Central). It exposes an imperative
-`EzoicAds` TurboModule and an `EzoicBannerView` Fabric component.
+`EzoicAds` TurboModule plus `EzoicBannerView` and `EzoicNativeAdView` Fabric
+components.
 
 ## Requirements
 
@@ -68,6 +69,28 @@ const tracked = await EzoicAds.trackPageview();
 `adUnitIdentifier` is a string coerced to a native integer. `size` is a `"WxH"`
 string or comma-separated list (e.g. `"300x250"`, `"300x250,320x50"`).
 
+### Native ads
+
+`EzoicNativeAdView` loads a native ad and renders it in an SDK-built template
+`NativeAdView` (headline, icon, media, body and a call-to-action). Unlike the
+banner it has no `size` prop — size it with `style` and the template lays its
+assets out inside those bounds.
+
+```tsx
+import { EzoicAds, EzoicNativeAdView } from '@ezoic/react-native-sdk';
+
+<EzoicNativeAdView
+  adUnitIdentifier="123456"
+  style={{ width: '100%', height: 300 }}
+  onLoad={() => console.log('loaded')}
+  onError={(e) => console.log('error', e.message, e.code)}
+  onImpression={() => console.log('impression')}
+  onClick={() => console.log('click')}
+  onOpen={() => console.log('open')}
+  onClose={() => console.log('close')}
+/>;
+```
+
 ## API
 
 - `EzoicAds.initialize(config)` → `Promise<void>`
@@ -76,6 +99,7 @@ string or comma-separated list (e.g. `"300x250"`, `"300x250,320x50"`).
 - `EzoicAds.setSubjectToCOPPA(value)` → `void`
 - `EzoicAds.trackPageview()` → `Promise<boolean>`
 - `<EzoicBannerView adUnitIdentifier size onLoad onError onImpression onClick onOpen onClose />`
+- `<EzoicNativeAdView adUnitIdentifier onLoad onError onImpression onClick onOpen onClose />`
 
 ## License
 

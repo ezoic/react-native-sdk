@@ -1,6 +1,7 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 import NativeEzoicAds, { type EzoicConfig } from './NativeEzoicAds';
 import EzoicBannerNative from './EzoicBannerViewNativeComponent';
+import EzoicNativeAdNative from './EzoicNativeAdViewNativeComponent';
 import { coerceAdUnitId, normalizeConfig, normalizeSize } from './helpers';
 
 export type { EzoicConfig };
@@ -66,6 +67,52 @@ export function EzoicBannerView(props: EzoicBannerViewProps) {
       {...rest}
       adUnitIdentifier={coerceAdUnitId(adUnitIdentifier)}
       size={normalizeSize(size)}
+      onLoad={onLoad ? () => onLoad() : undefined}
+      onError={onError ? (e) => onError(e.nativeEvent) : undefined}
+      onImpression={onImpression ? () => onImpression() : undefined}
+      onAdClick={onClick ? () => onClick() : undefined}
+      onOpen={onOpen ? () => onOpen() : undefined}
+      onClose={onClose ? () => onClose() : undefined}
+    />
+  );
+}
+
+export interface EzoicNativeAdError {
+  message: string;
+  code: number;
+}
+
+export interface EzoicNativeAdViewProps {
+  adUnitIdentifier: string | number;
+  style?: StyleProp<ViewStyle>;
+  onLoad?: () => void;
+  onError?: (error: EzoicNativeAdError) => void;
+  onImpression?: () => void;
+  onClick?: () => void;
+  onOpen?: () => void;
+  onClose?: () => void;
+}
+
+/**
+ * Renders a native ad in an SDK-built template `NativeAdView`. The component
+ * fills the bounds it is given by its RN style, so size it with `style` (e.g.
+ * `{ width: '100%', height: 300 }`); the template lays out its assets inside.
+ */
+export function EzoicNativeAdView(props: EzoicNativeAdViewProps) {
+  const {
+    adUnitIdentifier,
+    onLoad,
+    onError,
+    onImpression,
+    onClick,
+    onOpen,
+    onClose,
+    ...rest
+  } = props;
+  return (
+    <EzoicNativeAdNative
+      {...rest}
+      adUnitIdentifier={coerceAdUnitId(adUnitIdentifier)}
       onLoad={onLoad ? () => onLoad() : undefined}
       onError={onError ? (e) => onError(e.nativeEvent) : undefined}
       onImpression={onImpression ? () => onImpression() : undefined}

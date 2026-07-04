@@ -137,5 +137,10 @@
       "jest"
     ],
     "version": "0.62.1"
+  },
+  "overrides": {
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "^3.15.0"
+    }
   }
 }

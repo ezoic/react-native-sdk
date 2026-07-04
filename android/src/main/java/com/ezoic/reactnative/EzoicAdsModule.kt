@@ -7,6 +7,8 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.ezoic.ads.sdk.adunits.EzoicInstreamAd
+import com.ezoic.ads.sdk.adunits.EzoicInstreamAdListener
 import com.ezoic.ads.sdk.adunits.EzoicInterstitialAd
 import com.ezoic.ads.sdk.adunits.EzoicInterstitialAdListener
 import com.ezoic.ads.sdk.adunits.EzoicInterstitialAdListenerAdapter
@@ -18,6 +20,7 @@ import com.ezoic.ads.sdk.core.EzoicAds
 import com.ezoic.ads.sdk.core.EzoicConfiguration
 import com.ezoic.ads.sdk.core.EzoicError
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 class EzoicAdsModule(reactContext: ReactApplicationContext) :
   NativeEzoicAdsSpec(reactContext) {
@@ -50,6 +53,28 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
 
   /** Ad unit ids with an in-flight interstitial `load`. */
   private val loadingInterstitial = ConcurrentHashMap.newKeySet<Int>()
+
+  /**
+   * Instream controllers, keyed by ad unit id. Instream is multi-use and
+   * prefetchable, so a controller is created-or-reused per id and NOT
+   * auto-destroyed — it lives until [destroyInstreamAd] or module teardown.
+   */
+  private val instreamAds = ConcurrentHashMap<Int, EzoicInstreamAd>()
+
+  /**
+   * In-flight instream `load` calls, keyed by ad unit id. Doubles as the
+   * duplicate-load guard: the native `load` is a SILENT no-op while already
+   * loading, so an overlapping load must be rejected here or its promise hangs
+   * forever.
+   */
+  private val loadingInstream = ConcurrentHashMap<Int, InstreamLoad>()
+
+  private class InstreamLoad(val promise: Promise) {
+    // destroy/invalidate run on the JS thread while listener callbacks run on
+    // main, so settling must be an atomic claim (compareAndSet) rather than a
+    // check-then-set, or both sides can settle the same promise.
+    val settled = AtomicBoolean(false)
+  }
 
   override fun initialize(config: ReadableMap, promise: Promise) {
     val domain = if (config.hasKey("domain")) config.getString("domain") else null
@@ -233,6 +258,110 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     activity.runOnUiThread {
       ad.show(activity)
     }
+  }
+
+  override fun loadInstreamAd(adUnitIdentifier: Double, contentUrl: String?, promise: Promise) {
+    val id = adUnitIdentifier.toInt()
+    if (id <= 0) {
+      promise.reject("EzoicAds", "Invalid adUnitIdentifier: $adUnitIdentifier")
+      return
+    }
+    // Reject overlapping loads for this id: the native load silently no-ops
+    // while loading (a second load on the reused controller, or a load from a
+    // fresh JS instance sharing the id), which would hang the promise.
+    if (loadingInstream.containsKey(id)) {
+      promise.reject("EzoicAds", "An instream ad is already loading for ad unit $id")
+      return
+    }
+
+    // Create-or-reuse: instream is multi-use, so a repeat load on the same id
+    // reuses the existing native controller (preserving its tag/waterfall state).
+    val ad = instreamAds.getOrPut(id) { EzoicInstreamAd(id) }
+
+    val holder = InstreamLoad(promise)
+    loadingInstream[id] = holder
+    // The native load uses the context only for parity (it is not retained);
+    // pass the same reactApplicationContext the rewarded/interstitial loads use.
+    // The native SDK already posts these callbacks to main, so settle directly
+    // here — no need to re-post via a Handler.
+    ad.load(reactApplicationContext, contentUrl, object : EzoicInstreamAdListener {
+      override fun onAdTagReady(adTagUrl: String) {
+        // CAS guard: after a destroy->reload a stale callback must not evict
+        // the newer load's holder (only the winning settle removes it).
+        if (holder.settled.compareAndSet(false, true)) {
+          loadingInstream.remove(id)
+          promise.resolve(adTagUrl)
+        }
+      }
+
+      override fun onAdFailedToLoad(error: EzoicError) {
+        if (holder.settled.compareAndSet(false, true)) {
+          loadingInstream.remove(id)
+          val userInfo = Arguments.createMap()
+          userInfo.putInt("code", error.code)
+          promise.reject("EzoicAds", error.message ?: "Instream ad failed to load", userInfo)
+        }
+      }
+    })
+  }
+
+  override fun getInstreamNextAdTagUrl(adUnitIdentifier: Double, promise: Promise) {
+    val id = adUnitIdentifier.toInt()
+    if (id <= 0) {
+      promise.reject("EzoicAds", "Invalid adUnitIdentifier: $adUnitIdentifier")
+      return
+    }
+    // Synchronous native call; resolves the next waterfall tag or null when
+    // exhausted / before a successful load / after destroy.
+    promise.resolve(instreamAds[id]?.getNextAdTagUrl())
+  }
+
+  override fun reportInstreamImpression(
+    adUnitIdentifier: Double,
+    revenueUsd: Double?,
+    promise: Promise
+  ) {
+    val id = adUnitIdentifier.toInt()
+    if (id <= 0) {
+      promise.reject("EzoicAds", "Invalid adUnitIdentifier: $adUnitIdentifier")
+      return
+    }
+    // No-op natively when no tag has been delivered or after destroy.
+    instreamAds[id]?.reportImpression(revenueUsd)
+    promise.resolve(null)
+  }
+
+  override fun destroyInstreamAd(adUnitIdentifier: Double, promise: Promise) {
+    val id = adUnitIdentifier.toInt()
+    if (id <= 0) {
+      promise.reject("EzoicAds", "Invalid adUnitIdentifier: $adUnitIdentifier")
+      return
+    }
+    // The native SDK suppresses load callbacks once destroyed (load tokens), so
+    // settle any pending load's promise HERE first or it hangs forever. The CAS
+    // claim also disarms a listener callback racing in on main concurrently.
+    val pending = loadingInstream.remove(id)
+    if (pending != null && pending.settled.compareAndSet(false, true)) {
+      pending.promise.reject("EzoicAds", "Instream ad was destroyed while loading")
+    }
+    instreamAds.remove(id)?.destroy()
+    promise.resolve(null)
+  }
+
+  override fun invalidate() {
+    // Module teardown: settle every pending instream load with an error and
+    // destroy every controller so no promise hangs and no native resource leaks.
+    for ((_, holder) in loadingInstream) {
+      if (holder.settled.compareAndSet(false, true)) {
+        holder.promise.reject("EzoicAds", "Module was destroyed while loading")
+      }
+    }
+    loadingInstream.clear()
+    for ((_, ad) in instreamAds) {
+      ad.destroy()
+    }
+    instreamAds.clear()
+    super.invalidate()
   }
 
   override fun addListener(eventName: String) {

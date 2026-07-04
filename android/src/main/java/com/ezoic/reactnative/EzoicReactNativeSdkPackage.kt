@@ -21,7 +21,8 @@ class EzoicReactNativeSdkPackage : BaseReactPackage() {
   ): List<ViewManager<*, *>> {
     return listOf(
       EzoicBannerViewManager(reactContext),
-      EzoicNativeAdViewManager(reactContext)
+      EzoicNativeAdViewManager(reactContext),
+      EzoicOutstreamAdViewManager(reactContext)
     )
   }
 

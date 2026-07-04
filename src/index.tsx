@@ -2,6 +2,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import NativeEzoicAds, { type EzoicConfig } from './NativeEzoicAds';
 import EzoicBannerNative from './EzoicBannerViewNativeComponent';
 import EzoicNativeAdNative from './EzoicNativeAdViewNativeComponent';
+import EzoicOutstreamNative from './EzoicOutstreamAdViewNativeComponent';
 import { coerceAdUnitId, normalizeConfig, normalizeSize } from './helpers';
 
 export type { EzoicConfig };
@@ -14,6 +15,11 @@ export {
   EzoicInterstitialAd,
   type EzoicInterstitialAdListeners,
 } from './EzoicInterstitialAd';
+export {
+  EzoicInstreamAd,
+  type EzoicInstreamLoadOptions,
+  type EzoicInstreamImpressionOptions,
+} from './EzoicInstreamAd';
 
 export const EzoicAds = {
   initialize(config: EzoicConfig): Promise<void> {
@@ -111,6 +117,53 @@ export function EzoicNativeAdView(props: EzoicNativeAdViewProps) {
   } = props;
   return (
     <EzoicNativeAdNative
+      {...rest}
+      adUnitIdentifier={coerceAdUnitId(adUnitIdentifier)}
+      onLoad={onLoad ? () => onLoad() : undefined}
+      onError={onError ? (e) => onError(e.nativeEvent) : undefined}
+      onImpression={onImpression ? () => onImpression() : undefined}
+      onAdClick={onClick ? () => onClick() : undefined}
+      onOpen={onOpen ? () => onOpen() : undefined}
+      onClose={onClose ? () => onClose() : undefined}
+    />
+  );
+}
+
+export interface EzoicOutstreamAdError {
+  message: string;
+  code: number;
+}
+
+export interface EzoicOutstreamAdViewProps {
+  adUnitIdentifier: string | number;
+  style?: StyleProp<ViewStyle>;
+  onLoad?: () => void;
+  onError?: (error: EzoicOutstreamAdError) => void;
+  onImpression?: () => void;
+  onClick?: () => void;
+  onOpen?: () => void;
+  onClose?: () => void;
+}
+
+/**
+ * Renders an outstream video ad in an SDK-built player. Outstream video runs on
+ * its own (not inside host video content), so the SDK owns the player and this
+ * component only needs a size. Fills the bounds it is given by its RN style, so
+ * size it with `style` (e.g. `{ width: '100%', height: 200 }`).
+ */
+export function EzoicOutstreamAdView(props: EzoicOutstreamAdViewProps) {
+  const {
+    adUnitIdentifier,
+    onLoad,
+    onError,
+    onImpression,
+    onClick,
+    onOpen,
+    onClose,
+    ...rest
+  } = props;
+  return (
+    <EzoicOutstreamNative
       {...rest}
       adUnitIdentifier={coerceAdUnitId(adUnitIdentifier)}
       onLoad={onLoad ? () => onLoad() : undefined}

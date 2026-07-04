@@ -32,6 +32,24 @@ export interface Spec extends TurboModule {
   showRewardedAd(adUnitIdentifier: string): Promise<EzoicRewardResult>;
   loadInterstitialAd(adUnitIdentifier: string): Promise<void>;
   showInterstitialAd(adUnitIdentifier: string): Promise<void>;
+  // Instream video: the native `EzoicInstreamAd` renders nothing — its sole
+  // deliverable is a GAM VAST ad-tag URL the host feeds to its own IMA player.
+  // The id is numeric here (matches the native controller's `Int`/`Int`
+  // adUnitId) and multi-use: a controller is created-or-reused per id and is
+  // NOT auto-destroyed. `contentUrl`/`revenueUsd` are nullable unions —
+  // codegen maps them to nullable native args (String?/NSString*, Double?/
+  // NSNumber*) — because there is no optional-arg precedent for instream on
+  // this spec and the native `load`/`reportImpression` accept optionals.
+  loadInstreamAd(
+    adUnitIdentifier: number,
+    contentUrl: string | null
+  ): Promise<string>;
+  getInstreamNextAdTagUrl(adUnitIdentifier: number): Promise<string | null>;
+  reportInstreamImpression(
+    adUnitIdentifier: number,
+    revenueUsd: number | null
+  ): Promise<void>;
+  destroyInstreamAd(adUnitIdentifier: number): Promise<void>;
   // Required by NativeEventEmitter for the ad lifecycle events.
   addListener(eventName: string): void;
   removeListeners(count: number): void;

@@ -42,6 +42,11 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   _hasListeners = NO;
 }
 
+- (void)invalidate {
+  [_impl invalidate];
+  [super invalidate];
+}
+
 - (void)initialize:(JS::NativeEzoicAds::EzoicConfig &)config
            resolve:(RCTPromiseResolveBlock)resolve
             reject:(RCTPromiseRejectBlock)reject {
@@ -103,6 +108,42 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   [_impl showInterstitialAd:adUnitIdentifier
                     resolve:^(id _Nullable v) { resolve(v); }
                      reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
+}
+
+- (void)loadInstreamAd:(double)adUnitIdentifier
+            contentUrl:(NSString *)contentUrl
+               resolve:(RCTPromiseResolveBlock)resolve
+                reject:(RCTPromiseRejectBlock)reject {
+  [_impl loadInstreamAd:adUnitIdentifier
+             contentUrl:contentUrl
+                resolve:^(id _Nullable v) { resolve(v); }
+                 reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
+}
+
+- (void)getInstreamNextAdTagUrl:(double)adUnitIdentifier
+                        resolve:(RCTPromiseResolveBlock)resolve
+                         reject:(RCTPromiseRejectBlock)reject {
+  [_impl getInstreamNextAdTagUrl:adUnitIdentifier
+                         resolve:^(id _Nullable v) { resolve(v); }
+                          reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
+}
+
+- (void)reportInstreamImpression:(double)adUnitIdentifier
+                      revenueUsd:(NSNumber *)revenueUsd
+                         resolve:(RCTPromiseResolveBlock)resolve
+                          reject:(RCTPromiseRejectBlock)reject {
+  [_impl reportInstreamImpression:adUnitIdentifier
+                       revenueUsd:revenueUsd
+                          resolve:^(id _Nullable v) { resolve(v); }
+                           reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
+}
+
+- (void)destroyInstreamAd:(double)adUnitIdentifier
+                  resolve:(RCTPromiseResolveBlock)resolve
+                   reject:(RCTPromiseRejectBlock)reject {
+  [_impl destroyInstreamAd:adUnitIdentifier
+                   resolve:^(id _Nullable v) { resolve(v); }
+                    reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

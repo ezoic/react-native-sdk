@@ -43,6 +43,28 @@ import EzoicAdsSDKBinary
   /// Ad unit ids with an in-flight interstitial `load`.
   private var loadingInterstitial: Set<Int> = []
 
+  /// Active instream controllers, keyed by ad unit id. Instream is multi-use and
+  /// NOT auto-destroying, so this impl retains each controller across load
+  /// cycles (and is its `weak` delegate) until `destroyInstreamAd`.
+  private var instreamAds: [Int: EzoicInstreamAd] = [:]
+
+  /// In-flight instream `load` calls, keyed by ad unit id. Doubles as the
+  /// duplicate-load guard: the native `load` is a silent no-op while already
+  /// loading, so an unguarded second promise would hang forever.
+  private var pendingInstreamLoads: [Int: PendingInstreamLoad] = [:]
+
+  private final class PendingInstreamLoad {
+    let resolve: (Any?) -> Void
+    let reject: (String, String, NSError?) -> Void
+    /// Set once the promise is fulfilled so a late delegate callback (or a
+    /// destroy that already settled it) cannot double-settle it.
+    var settled: Bool = false
+    init(resolve: @escaping (Any?) -> Void, reject: @escaping (String, String, NSError?) -> Void) {
+      self.resolve = resolve
+      self.reject = reject
+    }
+  }
+
   /// Runs `work` on the main thread. The ad/pending/loading dictionaries and
   /// every native load/show call touch UIKit and this shared state, so they must
   /// only run on main. Delegate callbacks already arrive on main.
@@ -228,6 +250,113 @@ import EzoicAdsSDKBinary
     for (key, value) in extra { body[key] = value }
     eventEmitter?("EzoicInterstitialAdEvent", body)
   }
+
+  // MARK: - Instream video
+
+  /// Converts a bridge `Double` ad unit id to a native `Int`, rejecting NaN,
+  /// infinite, and out-of-`Int` ids. `Number("abc")` on the JS side arrives as
+  /// NaN, and `Int(Double.nan)` traps; likewise `Int(1e20)` traps even though
+  /// 1e20 is finite, so the upper bound must be checked before the `Int(...)`
+  /// conversion. Bounded to `Int32.max` and requires >= 1 to match Android's
+  /// rejection of ids <= 0.
+  private func instreamId(_ adUnitIdentifier: Double,
+                          _ reject: (String, String, NSError?) -> Void) -> Int? {
+    guard adUnitIdentifier.isFinite,
+          adUnitIdentifier >= 1,
+          adUnitIdentifier <= Double(Int32.max) else {
+      reject("EzoicAds", "Invalid adUnitIdentifier: \(adUnitIdentifier)", nil)
+      return nil
+    }
+    return Int(adUnitIdentifier)
+  }
+
+  @objc public func loadInstreamAd(_ adUnitIdentifier: Double,
+                                   contentUrl: String?,
+                                   resolve: @escaping (Any?) -> Void,
+                                   reject: @escaping (String, String, NSError?) -> Void) {
+    onMain { [weak self] in
+      guard let self = self else { return }
+      guard let id = self.instreamId(adUnitIdentifier, reject) else { return }
+      // Reject overlapping loads: the native load silently no-ops while an
+      // earlier one is in flight, which would hang this promise forever.
+      if self.pendingInstreamLoads[id] != nil {
+        reject("EzoicAds", "An instream ad is already loading for ad unit \(id)", nil)
+        return
+      }
+      // Create-or-reuse: instream is multi-use, so a repeat load on the same id
+      // reuses the existing native controller (preserving its tag state).
+      let ad: EzoicInstreamAd
+      if let existing = self.instreamAds[id] {
+        ad = existing
+      } else {
+        ad = EzoicInstreamAd(adUnitId: id)
+        self.instreamAds[id] = ad
+      }
+      // Register the pending holder BEFORE calling load: early validation
+      // failures deliver the delegate callback synchronously.
+      self.pendingInstreamLoads[id] = PendingInstreamLoad(resolve: resolve, reject: reject)
+      ad.load(contentUrl: contentUrl, delegate: self)
+    }
+  }
+
+  @objc public func getInstreamNextAdTagUrl(_ adUnitIdentifier: Double,
+                                            resolve: @escaping (Any?) -> Void,
+                                            reject: @escaping (String, String, NSError?) -> Void) {
+    onMain { [weak self] in
+      guard let self = self else { return }
+      guard let id = self.instreamId(adUnitIdentifier, reject) else { return }
+      // Native getNextAdTagUrl returns nil once the waterfall is exhausted,
+      // before a successful load, or after destroy — surface that as JS null.
+      resolve(self.instreamAds[id]?.getNextAdTagUrl())
+    }
+  }
+
+  @objc public func reportInstreamImpression(_ adUnitIdentifier: Double,
+                                             revenueUsd: NSNumber?,
+                                             resolve: @escaping (Any?) -> Void,
+                                             reject: @escaping (String, String, NSError?) -> Void) {
+    onMain { [weak self] in
+      guard let self = self else { return }
+      guard let id = self.instreamId(adUnitIdentifier, reject) else { return }
+      self.instreamAds[id]?.reportImpression(revenueUsd: revenueUsd?.doubleValue)
+      resolve(nil)
+    }
+  }
+
+  @objc public func destroyInstreamAd(_ adUnitIdentifier: Double,
+                                      resolve: @escaping (Any?) -> Void,
+                                      reject: @escaping (String, String, NSError?) -> Void) {
+    onMain { [weak self] in
+      guard let self = self else { return }
+      guard let id = self.instreamId(adUnitIdentifier, reject) else { return }
+      // Native suppresses load callbacks once destroyed, so settle any pending
+      // load's promise here first or it hangs forever.
+      if let pending = self.pendingInstreamLoads.removeValue(forKey: id), !pending.settled {
+        pending.settled = true
+        pending.reject("EzoicAds", "Instream ad was destroyed while loading", nil)
+      }
+      self.instreamAds.removeValue(forKey: id)?.destroy()
+      resolve(nil)
+    }
+  }
+
+  /// Module teardown parity with Android's `EzoicAdsModule.invalidate`: settle
+  /// every pending instream load with an error and destroy every controller so
+  /// no promise hangs and no native resource leaks.
+  @objc public func invalidate() {
+    onMain { [weak self] in
+      guard let self = self else { return }
+      for (_, pending) in self.pendingInstreamLoads where !pending.settled {
+        pending.settled = true
+        pending.reject("EzoicAds", "Module was destroyed while loading", nil)
+      }
+      self.pendingInstreamLoads.removeAll()
+      for (_, ad) in self.instreamAds {
+        ad.destroy()
+      }
+      self.instreamAds.removeAll()
+    }
+  }
 }
 
 // MARK: - EzoicRewardedAdDelegate
@@ -308,5 +437,36 @@ extension EzoicAdsImpl: EzoicInterstitialAdDelegate {
     if let pending = pendingInterstitialShows.removeValue(forKey: id) {
       pending.resolve(nil)
     }
+  }
+}
+
+// MARK: - EzoicInstreamAdDelegate
+
+extension EzoicAdsImpl: EzoicInstreamAdDelegate {
+
+  // Delegate callbacks arrive on main (see `onMain`), matching the rewarded /
+  // interstitial extensions which touch shared state directly. Removal happens
+  // only inside the not-yet-settled branch (settled-conditional removal) so a
+  // stale callback can't evict a newer load's holder after destroy→reload.
+  public func instreamAd(_ instreamAd: EzoicInstreamAd, didReceiveAdTag adTagUrl: String) {
+    let id = instreamAd.adUnitId
+    // Identity check: after destroy->reload for this id, a late callback from
+    // the destroyed controller must not settle the newer load's promise.
+    guard self.instreamAds[id] === instreamAd else { return }
+    guard let pending = pendingInstreamLoads[id], !pending.settled else { return }
+    pending.settled = true
+    pendingInstreamLoads.removeValue(forKey: id)
+    pending.resolve(adTagUrl)
+  }
+
+  public func instreamAd(_ instreamAd: EzoicInstreamAd, didFailToLoadWithError error: EzoicError) {
+    let id = instreamAd.adUnitId
+    // Identity check: after destroy->reload for this id, a late callback from
+    // the destroyed controller must not settle the newer load's promise.
+    guard self.instreamAds[id] === instreamAd else { return }
+    guard let pending = pendingInstreamLoads[id], !pending.settled else { return }
+    pending.settled = true
+    pendingInstreamLoads.removeValue(forKey: id)
+    pending.reject("EzoicAds", error.localizedDescription, error as NSError)
   }
 }

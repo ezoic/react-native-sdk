@@ -68,7 +68,7 @@ dependencies {
   // Native Ezoic Ads SDK (resolved from Maven Central). Brings in Google Mobile
   // Ads + Prebid transitively. Requires mavenCentral() + google() in the
   // consuming app's repositories (the RN template provides both).
-  implementation "com.ezoic.sdk:ezoic-ads-sdk:1.4.0"
+  implementation "com.ezoic.sdk:ezoic-ads-sdk:1.5.0"
 
   // The native-ad wrapper references GMA's NativeAdView/MediaView/NativeAd
   // types at compile time. The Ezoic SDK POM scopes Google Mobile Ads at

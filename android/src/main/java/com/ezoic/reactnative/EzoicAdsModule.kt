@@ -117,6 +117,27 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     EzoicAds.instance.trackPageview { success -> promise.resolve(success) }
   }
 
+  override fun getPageviewId(promise: Promise) {
+    promise.resolve(EzoicAds.instance.pageviewId)
+  }
+
+  override fun getVisitorId(promise: Promise) {
+    promise.resolve(EzoicAds.instance.visitorId)
+  }
+
+  override fun trackPageviewWithIds(promise: Promise) {
+    EzoicAds.instance.trackPageviewWithIds { pageview ->
+      if (pageview == null) {
+        promise.resolve(null)
+        return@trackPageviewWithIds
+      }
+      val map = Arguments.createMap()
+      map.putString("pageviewId", pageview.pageviewId)
+      map.putString("visitorId", pageview.visitorId)
+      promise.resolve(map)
+    }
+  }
+
   override fun loadRewardedAd(adUnitIdentifier: String, promise: Promise) {
     val id = adUnitIdentifier.toIntOrNull()
     if (id == null) {

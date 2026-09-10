@@ -78,6 +78,18 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   [_impl trackPageview:^(id _Nullable v) { resolve(v); }];
 }
 
+- (void)getPageviewId:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl getPageviewId:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)getVisitorId:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl getVisitorId:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)trackPageviewWithIds:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl trackPageviewWithIds:^(id _Nullable v) { resolve(v); }];
+}
+
 - (void)loadRewardedAd:(NSString *)adUnitIdentifier
                resolve:(RCTPromiseResolveBlock)resolve
                 reject:(RCTPromiseRejectBlock)reject {

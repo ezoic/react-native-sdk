@@ -51,6 +51,9 @@ EzoicAds.setSubjectToCOPPA(false);
 
 // Track a pageview.
 const tracked = await EzoicAds.trackPageview();
+const pageview = await EzoicAds.trackPageviewWithIds();
+const pageviewId = pageview?.pageviewId ?? (await EzoicAds.getPageviewId());
+const visitorId = pageview?.visitorId ?? (await EzoicAds.getVisitorId());
 
 // Render a banner.
 <EzoicBannerView
@@ -152,6 +155,9 @@ resolves. `contentUrl` and `revenueUsd` are optional.
 - `EzoicAds.setGPPConsent(gppString?, sectionIds?)` → `void`
 - `EzoicAds.setSubjectToCOPPA(value)` → `void`
 - `EzoicAds.trackPageview()` → `Promise<boolean>`
+- `EzoicAds.getPageviewId()` → `Promise<string | null>`
+- `EzoicAds.getVisitorId()` → `Promise<string | null>`
+- `EzoicAds.trackPageviewWithIds()` → `Promise<{ pageviewId: string; visitorId: string | null } | null>`
 - `<EzoicBannerView adUnitIdentifier size onLoad onError onImpression onClick onOpen onClose />`
 - `<EzoicNativeAdView adUnitIdentifier onLoad onError onImpression onClick onOpen onClose />`
 - `<EzoicOutstreamAdView adUnitIdentifier onLoad onError onImpression onClick onOpen onClose />`

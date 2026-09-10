@@ -1,11 +1,14 @@
 import type { StyleProp, ViewStyle } from 'react-native';
-import NativeEzoicAds, { type EzoicConfig } from './NativeEzoicAds';
+import NativeEzoicAds, {
+  type EzoicConfig,
+  type EzoicPageview,
+} from './NativeEzoicAds';
 import EzoicBannerNative from './EzoicBannerViewNativeComponent';
 import EzoicNativeAdNative from './EzoicNativeAdViewNativeComponent';
 import EzoicOutstreamNative from './EzoicOutstreamAdViewNativeComponent';
 import { coerceAdUnitId, normalizeConfig, normalizeSize } from './helpers';
 
-export type { EzoicConfig };
+export type { EzoicConfig, EzoicPageview };
 export {
   EzoicRewardedAd,
   type EzoicReward,
@@ -36,6 +39,15 @@ export const EzoicAds = {
   },
   trackPageview(): Promise<boolean> {
     return NativeEzoicAds.trackPageview();
+  },
+  getPageviewId(): Promise<string | null> {
+    return NativeEzoicAds.getPageviewId();
+  },
+  getVisitorId(): Promise<string | null> {
+    return NativeEzoicAds.getVisitorId();
+  },
+  trackPageviewWithIds(): Promise<EzoicPageview | null> {
+    return NativeEzoicAds.trackPageviewWithIds();
   },
 };
 

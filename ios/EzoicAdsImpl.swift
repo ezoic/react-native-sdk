@@ -129,6 +129,32 @@ import EzoicAdsSDKBinary
     }
   }
 
+  @objc public func getPageviewId(_ resolve: @escaping (Any?) -> Void) {
+    onMain {
+      resolve(EzoicAds.shared.pageviewId)
+    }
+  }
+
+  @objc public func getVisitorId(_ resolve: @escaping (Any?) -> Void) {
+    onMain {
+      resolve(EzoicAds.shared.visitorId)
+    }
+  }
+
+  @objc public func trackPageviewWithIds(_ resolve: @escaping (Any?) -> Void) {
+    onMain {
+      EzoicAds.shared.trackPageviewResult { pageview in
+        guard let pageview = pageview else {
+          resolve(nil)
+          return
+        }
+        var payload: [String: Any] = ["pageviewId": pageview.pageviewId]
+        payload["visitorId"] = pageview.visitorId ?? NSNull()
+        resolve(payload)
+      }
+    }
+  }
+
   @objc public func loadRewardedAd(_ adUnitIdentifier: String,
                                    resolve: @escaping (Any?) -> Void,
                                    reject: @escaping (String, String, NSError?) -> Void) {

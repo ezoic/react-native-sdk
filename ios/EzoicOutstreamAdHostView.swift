@@ -7,6 +7,7 @@ import EzoicAdsSDKBinary
 @objc public protocol EzoicOutstreamAdHostViewDelegate: AnyObject {
   func outstreamAdDidLoad()
   func outstreamAdDidFail(_ message: String, code: Int)
+  func outstreamAdDidChangeSize(_ width: Double, height: Double)
   func outstreamAdDidRecordImpression()
   func outstreamAdDidRecordClick()
   func outstreamAdWillPresentScreen()
@@ -26,6 +27,10 @@ import EzoicAdsSDKBinary
 
   @objc public weak var hostDelegate: EzoicOutstreamAdHostViewDelegate?
 
+  @objc public var collapseOnNoFill: Bool = true {
+    didSet { outstreamView?.collapseOnNoFill = collapseOnNoFill }
+  }
+
   private var adUnitId: Int = 0
   private var outstreamView: EzoicOutstreamAdView?
   private var loadStarted = false
@@ -44,6 +49,7 @@ import EzoicAdsSDKBinary
     loadStarted = true
 
     let view = EzoicOutstreamAdView(adUnitIdentifier: adUnitId)
+    view.collapseOnNoFill = collapseOnNoFill
     // Delegate before loadAd so no early lifecycle callback is missed.
     view.delegate = self
     view.translatesAutoresizingMaskIntoConstraints = false
@@ -64,6 +70,9 @@ import EzoicAdsSDKBinary
   }
   public func outstreamView(_ outstreamView: EzoicOutstreamAdView, didFailToLoadWithError error: EzoicError) {
     hostDelegate?.outstreamAdDidFail(error.localizedDescription, code: error.code)
+  }
+  public func outstreamView(_ outstreamView: EzoicOutstreamAdView, didChangeSize size: CGSize) {
+    hostDelegate?.outstreamAdDidChangeSize(Double(size.width), height: Double(size.height))
   }
   public func outstreamViewDidRecordImpression(_ outstreamView: EzoicOutstreamAdView) {
     hostDelegate?.outstreamAdDidRecordImpression()

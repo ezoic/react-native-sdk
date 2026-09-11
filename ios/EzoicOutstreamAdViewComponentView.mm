@@ -49,6 +49,7 @@ using namespace facebook::react;
     _lastAdUnit = adUnit;
     [_host configureWithAdUnitIdentifier:adUnit];
   }
+  _host.collapseOnNoFill = newProps.collapseOnNoFill;
   [super updateProps:props oldProps:oldProps];
 }
 
@@ -71,6 +72,11 @@ using namespace facebook::react;
   if (_eventEmitter)
     std::static_pointer_cast<EzoicOutstreamAdViewEventEmitter const>(_eventEmitter)
       ->onError({.message = std::string([message UTF8String]), .code = (int)code});
+}
+- (void)outstreamAdDidChangeSize:(double)width height:(double)height {
+  if (_eventEmitter)
+    std::static_pointer_cast<EzoicOutstreamAdViewEventEmitter const>(_eventEmitter)
+      ->onSizeChange({.width = width, .height = height});
 }
 - (void)outstreamAdDidRecordImpression {
   if (_eventEmitter) std::static_pointer_cast<EzoicOutstreamAdViewEventEmitter const>(_eventEmitter)->onImpression({});

@@ -1,4 +1,28 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it, jest, beforeEach } from '@jest/globals';
+
+// Persist collapsed state across re-invocations of the function component so
+// we can fire `onSizeChange` and inspect the next render without a renderer.
+const mockCollapse = { value: false, inited: false };
+
+jest.mock('react', () => {
+  const actual = jest.requireActual('react') as typeof import('react');
+  return {
+    ...actual,
+    useState: (init: boolean) => {
+      if (!mockCollapse.inited) {
+        mockCollapse.value = init;
+        mockCollapse.inited = true;
+      }
+      return [
+        mockCollapse.value,
+        (next: boolean | ((prev: boolean) => boolean)) => {
+          mockCollapse.value =
+            typeof next === 'function' ? next(mockCollapse.value) : next;
+        },
+      ];
+    },
+  };
+});
 
 // The Fabric component has no renderer in the node test env, so mock
 // react-native: `codegenNativeComponent` returns the component name (a stable
@@ -18,6 +42,11 @@ jest.mock('react-native', () => ({
 }));
 
 import { EzoicOutstreamAdView } from '../index';
+
+beforeEach(() => {
+  mockCollapse.value = false;
+  mockCollapse.inited = false;
+});
 
 // The public wrapper is a function component; invoke it directly and inspect
 // the element it returns for the native component (prop mapping, id coercion),
@@ -92,5 +121,48 @@ describe('EzoicOutstreamAdView missing handlers', () => {
     const style = { width: 320, height: 250 };
     const el = EzoicOutstreamAdView({ adUnitIdentifier: '1', style });
     expect(el.props.style).toEqual(style);
+  });
+});
+
+describe('EzoicOutstreamAdView collapse', () => {
+  it('passes collapseOnNoFill true to the native component by default', () => {
+    const el = EzoicOutstreamAdView({ adUnitIdentifier: '1' });
+    expect(el.props.collapseOnNoFill).toBe(true);
+  });
+
+  it('unwraps nativeEvent for onSizeChange and forwards the payload', () => {
+    const onSizeChange = jest.fn();
+    const el = EzoicOutstreamAdView({ adUnitIdentifier: '1', onSizeChange });
+    el.props.onSizeChange({ nativeEvent: { width: 320, height: 180 } });
+    expect(onSizeChange).toHaveBeenCalledWith({ width: 320, height: 180 });
+  });
+
+  it('sets style height 0 after a {height: 0} size event and restores after a non-zero size', () => {
+    const style = { width: 320, height: 250 };
+    let el = EzoicOutstreamAdView({ adUnitIdentifier: '1', style });
+    el.props.onSizeChange({ nativeEvent: { width: 0, height: 0 } });
+    el = EzoicOutstreamAdView({ adUnitIdentifier: '1', style });
+    expect(el.props.style).toEqual([style, { height: 0 }]);
+
+    el.props.onSizeChange({ nativeEvent: { width: 320, height: 180 } });
+    el = EzoicOutstreamAdView({ adUnitIdentifier: '1', style });
+    expect(el.props.style).toEqual(style);
+  });
+
+  it('does not collapse style when collapseOnNoFill={false}', () => {
+    const style = { width: 320, height: 250 };
+    let el = EzoicOutstreamAdView({
+      adUnitIdentifier: '1',
+      style,
+      collapseOnNoFill: false,
+    });
+    el.props.onSizeChange({ nativeEvent: { width: 0, height: 0 } });
+    el = EzoicOutstreamAdView({
+      adUnitIdentifier: '1',
+      style,
+      collapseOnNoFill: false,
+    });
+    expect(el.props.style).toEqual(style);
+    expect(el.props.collapseOnNoFill).toBe(false);
   });
 });

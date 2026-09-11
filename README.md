@@ -52,11 +52,15 @@ EzoicAds.setSubjectToCOPPA(false);
 // Track a pageview.
 const tracked = await EzoicAds.trackPageview();
 
-// Render a banner.
+// Render a banner. A hard-coded height is optional: on no-fill the view
+// collapses to height 0 (default), and `onSizeChange` reports the creative
+// size (or `{ width: 0, height: 0 }` when collapsed).
 <EzoicBannerView
   adUnitIdentifier="123456"
   size="300x250"
-  style={{ width: 300, height: 250 }}
+  style={{ width: 300 }}
+  collapseOnNoFill
+  onSizeChange={({ width, height }) => console.log('size', width, height)}
   onLoad={() => console.log('loaded')}
   onError={(e) => console.log('error', e.message, e.code)}
   onImpression={() => console.log('impression')}
@@ -68,6 +72,9 @@ const tracked = await EzoicAds.trackPageview();
 
 `adUnitIdentifier` is a string coerced to a native integer. `size` is a `"WxH"`
 string or comma-separated list (e.g. `"300x250"`, `"300x250,320x50"`).
+`collapseOnNoFill` (default `true`) collapses the view to height 0 when a load
+fails and nothing is displayed. `onSizeChange` receives `{ width, height }` in
+dp/pt after a fill, or `{ width: 0, height: 0 }` on collapse.
 
 ### Native ads
 
@@ -96,7 +103,8 @@ import { EzoicAds, EzoicNativeAdView } from '@ezoic/react-native-sdk';
 `EzoicOutstreamAdView` loads and renders a self-contained outstream video ad.
 Like the native ad it has no `size` prop — size it with `style` and the native
 view lays the player out inside those bounds. It is view-managed: mounting the
-component loads the ad, unmounting destroys it.
+component loads the ad, unmounting destroys it. Same `collapseOnNoFill`
+(default `true`) and `onSizeChange` props as the banner.
 
 ```tsx
 import { EzoicAds, EzoicOutstreamAdView } from '@ezoic/react-native-sdk';
@@ -104,6 +112,8 @@ import { EzoicAds, EzoicOutstreamAdView } from '@ezoic/react-native-sdk';
 <EzoicOutstreamAdView
   adUnitIdentifier="123456"
   style={{ width: '100%', height: 250 }}
+  collapseOnNoFill
+  onSizeChange={({ width, height }) => console.log('size', width, height)}
   onLoad={() => console.log('loaded')}
   onError={(e) => console.log('error', e.message, e.code)}
   onImpression={() => console.log('impression')}
@@ -152,9 +162,9 @@ resolves. `contentUrl` and `revenueUsd` are optional.
 - `EzoicAds.setGPPConsent(gppString?, sectionIds?)` → `void`
 - `EzoicAds.setSubjectToCOPPA(value)` → `void`
 - `EzoicAds.trackPageview()` → `Promise<boolean>`
-- `<EzoicBannerView adUnitIdentifier size onLoad onError onImpression onClick onOpen onClose />`
+- `<EzoicBannerView adUnitIdentifier size collapseOnNoFill onSizeChange onLoad onError onImpression onClick onOpen onClose />`
 - `<EzoicNativeAdView adUnitIdentifier onLoad onError onImpression onClick onOpen onClose />`
-- `<EzoicOutstreamAdView adUnitIdentifier onLoad onError onImpression onClick onOpen onClose />`
+- `<EzoicOutstreamAdView adUnitIdentifier collapseOnNoFill onSizeChange onLoad onError onImpression onClick onOpen onClose />`
 - `new EzoicInstreamAd(adUnitIdentifier)`
   - `.load({ contentUrl? })` → `Promise<string>` (GAM VAST ad-tag URL)
   - `.getNextAdTagUrl()` → `Promise<string | null>`

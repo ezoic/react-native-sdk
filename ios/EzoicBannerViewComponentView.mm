@@ -33,6 +33,7 @@ using namespace facebook::react;
   const auto &newProps = *std::static_pointer_cast<EzoicBannerViewProps const>(props);
   NSString *adUnit = [NSString stringWithUTF8String:newProps.adUnitIdentifier.c_str()];
   NSString *size = [NSString stringWithUTF8String:newProps.size.c_str()];
+  _host.collapseOnNoFill = newProps.collapseOnNoFill;
   if (![adUnit isEqualToString:_lastAdUnit] || ![size isEqualToString:_lastSize]) {
     _lastAdUnit = adUnit;
     _lastSize = size;
@@ -49,6 +50,11 @@ using namespace facebook::react;
     std::static_pointer_cast<EzoicBannerViewEventEmitter const>(_eventEmitter)
       ->onError({.message = std::string([message UTF8String]), .code = (int)code});
 }
+- (void)bannerDidChangeSize:(double)width height:(double)height {
+  if (_eventEmitter)
+    std::static_pointer_cast<EzoicBannerViewEventEmitter const>(_eventEmitter)
+      ->onSizeChange({.width = width, .height = height});
+}
 - (void)bannerDidRecordImpression {
   if (_eventEmitter) std::static_pointer_cast<EzoicBannerViewEventEmitter const>(_eventEmitter)->onImpression({});
 }
@@ -61,7 +67,6 @@ using namespace facebook::react;
 - (void)bannerDidDismissScreen {
   if (_eventEmitter) std::static_pointer_cast<EzoicBannerViewEventEmitter const>(_eventEmitter)->onClose({});
 }
-
 Class<RCTComponentViewProtocol> EzoicBannerViewCls(void) { return EzoicBannerView.class; }
 
 @end

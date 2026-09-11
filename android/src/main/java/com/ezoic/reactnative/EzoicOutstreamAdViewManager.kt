@@ -56,6 +56,12 @@ class EzoicOutstreamAdViewManager(private val ctx: ReactApplicationContext) :
     view.rawAdUnitId = value ?: ""
   }
 
+  @ReactProp(name = "collapseOnNoFill", defaultBoolean = true)
+  fun setCollapseOnNoFill(view: OutstreamAdContainer, value: Boolean) {
+    view.collapseOnNoFill = value
+    view.ezoicOutstreamAd?.collapseOnNoFill = value
+  }
+
   // Fabric sets every prop for the mount transaction before this runs, so the
   // ad unit id is final here. `view.post` escapes the mount transaction so the
   // synchronous native-SDK failure path (uninitialized) can't reenter the
@@ -83,6 +89,7 @@ class EzoicOutstreamAdViewManager(private val ctx: ReactApplicationContext) :
     // loadAd() so no early lifecycle callback is missed, add it to the
     // container, then load.
     val outstreamAd = EzoicOutstreamAdView(view.context, view.adUnitId)
+    outstreamAd.collapseOnNoFill = view.collapseOnNoFill
     outstreamAd.listener = object : EzoicOutstreamAdViewListener {
       override fun onOutstreamLoaded(adView: EzoicOutstreamAdView) {
         // dispose() and this callback both arrive on the main thread, so the
@@ -95,6 +102,15 @@ class EzoicOutstreamAdViewManager(private val ctx: ReactApplicationContext) :
       override fun onOutstreamLoadFailed(adView: EzoicOutstreamAdView, error: EzoicError) {
         if (view.disposed || view.loadGeneration != generation) return
         emit(view, "topError", errorMap(error.message, error.code))
+      }
+
+      override fun onOutstreamSizeChanged(adView: EzoicOutstreamAdView, widthDp: Int, heightDp: Int) {
+        if (view.disposed || view.loadGeneration != generation) return
+        val map = Arguments.createMap()
+        map.putDouble("width", widthDp.toDouble())
+        map.putDouble("height", heightDp.toDouble())
+        emit(view, "topSizeChange", map)
+        view.requestLayout()
       }
 
       override fun onOutstreamImpression(adView: EzoicOutstreamAdView) {
@@ -156,6 +172,12 @@ class EzoicOutstreamAdViewManager(private val ctx: ReactApplicationContext) :
     )
   }
 
+  override fun getExportedCustomDirectEventTypeConstants(): Map<String, Any> {
+    return mapOf(
+      "topSizeChange" to mapOf("registrationName" to "onSizeChange")
+    )
+  }
+
   /**
    * Container for the native outstream view. RN lays out only Yoga-managed
    * views; the native [EzoicOutstreamAdView] is added from native code and stays
@@ -169,6 +191,7 @@ class EzoicOutstreamAdViewManager(private val ctx: ReactApplicationContext) :
     var loadStarted: Boolean = false
     var disposed: Boolean = false
     var loadGeneration: Int = 0
+    var collapseOnNoFill: Boolean = true
     var ezoicOutstreamAd: EzoicOutstreamAdView? = null
 
     private val measureAndLayout = Runnable {

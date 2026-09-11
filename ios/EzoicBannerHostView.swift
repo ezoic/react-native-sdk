@@ -4,6 +4,7 @@ import EzoicAdsSDKBinary
 @objc public protocol EzoicBannerHostViewDelegate: AnyObject {
   func bannerDidLoad()
   func bannerDidFail(_ message: String, code: Int)
+  func bannerDidChangeSize(_ width: Double, height: Double)
   func bannerDidRecordImpression()
   func bannerDidRecordClick()
   func bannerWillPresentScreen()
@@ -13,6 +14,9 @@ import EzoicAdsSDKBinary
 @objc public class EzoicBannerHostView: UIView, EzoicBannerViewDelegate {
 
   @objc public weak var hostDelegate: EzoicBannerHostViewDelegate?
+  @objc public var collapseOnNoFill: Bool = true {
+    didSet { banner?.collapseOnNoFill = collapseOnNoFill }
+  }
   private var banner: EzoicBannerView?
   private var adUnitId: Int = 0
   private var sizes: [String] = []
@@ -26,6 +30,7 @@ import EzoicAdsSDKBinary
   private func rebuildAndLoad() {
     banner?.removeFromSuperview()
     let view = EzoicBannerView(adUnitIdentifier: adUnitId)
+    view.collapseOnNoFill = collapseOnNoFill
     view.delegate = self
     view.translatesAutoresizingMaskIntoConstraints = false
     addSubview(view)
@@ -41,6 +46,9 @@ import EzoicAdsSDKBinary
   public func bannerViewDidLoad(_ bannerView: EzoicBannerView) { hostDelegate?.bannerDidLoad() }
   public func bannerView(_ bannerView: EzoicBannerView, didFailToLoadWithError error: EzoicError) {
     hostDelegate?.bannerDidFail(error.localizedDescription, code: error.code)
+  }
+  public func bannerView(_ bannerView: EzoicBannerView, didChangeSize size: CGSize) {
+    hostDelegate?.bannerDidChangeSize(Double(size.width), height: Double(size.height))
   }
   public func bannerViewDidRecordImpression(_ bannerView: EzoicBannerView) { hostDelegate?.bannerDidRecordImpression() }
   public func bannerViewDidRecordClick(_ bannerView: EzoicBannerView) { hostDelegate?.bannerDidRecordClick() }

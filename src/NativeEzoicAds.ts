@@ -22,12 +22,20 @@ export interface EzoicRewardResult {
   amount: number;
 }
 
+export interface EzoicPageview {
+  pageviewId: string;
+  visitorId: string | null;
+}
+
 export interface Spec extends TurboModule {
   initialize(config: EzoicConfig): Promise<void>;
   setGDPRConsent(applies: boolean, consentString?: string): void;
   setGPPConsent(gppString?: string, sectionIds?: string): void;
   setSubjectToCOPPA(value: boolean): void;
   trackPageview(): Promise<boolean>;
+  getPageviewId(): Promise<string | null>;
+  getVisitorId(): Promise<string | null>;
+  trackPageviewWithIds(): Promise<EzoicPageview | null>;
   loadRewardedAd(adUnitIdentifier: string): Promise<void>;
   showRewardedAd(adUnitIdentifier: string): Promise<EzoicRewardResult>;
   loadInterstitialAd(adUnitIdentifier: string): Promise<void>;

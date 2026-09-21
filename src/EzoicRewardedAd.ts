@@ -96,8 +96,11 @@ export class EzoicRewardedAd {
    * `null` if the ad was dismissed before the reward was earned. Rejects if the
    * ad was not ready (load first) or failed to present.
    */
-  async show(): Promise<EzoicReward | null> {
-    const result = await NativeEzoicAds.showRewardedAd(this.adUnitIdentifier);
+  async show(rewardName?: string): Promise<EzoicReward | null> {
+    const result = await NativeEzoicAds.showRewardedAd(
+      this.adUnitIdentifier,
+      rewardName ?? null
+    );
     return mapRewardResult(result);
   }
 

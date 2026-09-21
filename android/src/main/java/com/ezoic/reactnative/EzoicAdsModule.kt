@@ -139,7 +139,11 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  override fun showRewardedAd(adUnitIdentifier: String, promise: Promise) {
+  override fun showRewardedAd(
+    adUnitIdentifier: String,
+    rewardName: String?,
+    promise: Promise
+  ) {
     val id = adUnitIdentifier.toIntOrNull()
     val ad = if (id != null) rewardedAds[id] else null
     if (id == null || ad == null) {
@@ -187,7 +191,11 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     )
 
     activity.runOnUiThread {
-      ad.show(activity) { reward -> show.reward = reward }
+      if (rewardName.isNullOrEmpty()) {
+        ad.show(activity) { reward -> show.reward = reward }
+      } else {
+        ad.show(activity, rewardName) { reward -> show.reward = reward }
+      }
     }
   }
 

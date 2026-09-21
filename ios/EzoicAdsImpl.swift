@@ -161,8 +161,9 @@ import EzoicAdsSDKBinary
   }
 
   @objc public func showRewardedAd(_ adUnitIdentifier: String,
-                                   resolve: @escaping (Any?) -> Void,
-                                   reject: @escaping (String, String, NSError?) -> Void) {
+                                 rewardName: String?,
+                                 resolve: @escaping (Any?) -> Void,
+                                 reject: @escaping (String, String, NSError?) -> Void) {
     onMain { [weak self] in
       guard let self = self else { return }
       guard let id = Int(adUnitIdentifier), let ad = self.rewardedAds[id] else {
@@ -174,8 +175,7 @@ import EzoicAdsSDKBinary
         return
       }
       self.pendingShows[id] = PendingRewardShow(resolve: resolve, reject: reject)
-      // Presenting from nil lets GMA use the application's top view controller.
-      ad.show(from: nil) { [weak self] reward in
+      ad.show(from: nil, rewardName: rewardName) { [weak self] reward in
         self?.onMain { self?.pendingShows[id]?.reward = reward }
       }
     }

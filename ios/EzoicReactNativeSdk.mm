@@ -87,9 +87,11 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
 }
 
 - (void)showRewardedAd:(NSString *)adUnitIdentifier
+            rewardName:(NSString *)rewardName
                resolve:(RCTPromiseResolveBlock)resolve
                 reject:(RCTPromiseRejectBlock)reject {
   [_impl showRewardedAd:adUnitIdentifier
+             rewardName:rewardName
                 resolve:^(id _Nullable v) { resolve(v); }
                  reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
 }

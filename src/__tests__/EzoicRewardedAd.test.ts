@@ -81,7 +81,21 @@ describe('EzoicRewardedAd.show', () => {
     );
     const ad = await EzoicRewardedAd.load('123');
     await expect(ad.show()).resolves.toEqual({ type: 'coins', amount: 5 });
-    expect(showMock).toHaveBeenCalledWith('123');
+    expect(showMock).toHaveBeenCalledWith('123', null);
+    ad.destroy();
+  });
+
+  it('passes rewardName to the native show', async () => {
+    const ad = await EzoicRewardedAd.load('123');
+    await ad.show('extra life');
+    expect(showMock).toHaveBeenCalledWith('123', 'extra life');
+    ad.destroy();
+  });
+
+  it('passes null when show is given no name', async () => {
+    const ad = await EzoicRewardedAd.load('123');
+    await ad.show();
+    expect(showMock).toHaveBeenCalledWith('123', null);
     ad.destroy();
   });
 

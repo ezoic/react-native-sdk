@@ -29,7 +29,10 @@ export interface Spec extends TurboModule {
   setSubjectToCOPPA(value: boolean): void;
   trackPageview(): Promise<boolean>;
   loadRewardedAd(adUnitIdentifier: string): Promise<void>;
-  showRewardedAd(adUnitIdentifier: string): Promise<EzoicRewardResult>;
+  showRewardedAd(
+    adUnitIdentifier: string,
+    rewardName: string | null
+  ): Promise<EzoicRewardResult>;
   loadInterstitialAd(adUnitIdentifier: string): Promise<void>;
   showInterstitialAd(adUnitIdentifier: string): Promise<void>;
   // Instream video: the native `EzoicInstreamAd` renders nothing — its sole

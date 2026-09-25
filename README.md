@@ -11,7 +11,7 @@ for iOS (`EzoicAdsSDK`, via CocoaPods) and Android
 ## Requirements
 
 - React Native 0.76+ with the New Architecture enabled.
-- iOS 14.0+, Android `minSdk` 24+.
+- iOS 15.0+ (Xcode 27 enforces a 15.0 floor), Android `minSdk` 24+.
 
 ## Installation
 

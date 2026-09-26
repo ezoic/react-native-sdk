@@ -1,10 +1,12 @@
 package com.ezoic.reactnative
 
+import android.app.Activity
 import android.app.Application
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.UiThreadUtil
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.ezoic.ads.sdk.adunits.EzoicInstreamAd
@@ -19,6 +21,8 @@ import com.ezoic.ads.sdk.adunits.EzoicRewardedAdListenerAdapter
 import com.ezoic.ads.sdk.core.EzoicAds
 import com.ezoic.ads.sdk.core.EzoicConfiguration
 import com.ezoic.ads.sdk.core.EzoicError
+import com.ezoic.ads.sdk.privacy.cmp.ConsentDecisionType
+import com.ezoic.ads.sdk.privacy.cmp.ConsentOutcome
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -120,6 +124,44 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       EzoicAds.instance.trackPageview { success -> promise.resolve(success) }
     } else {
       EzoicAds.instance.trackPageview(screen) { success -> promise.resolve(success) }
+    }
+  }
+
+  override fun presentConsentIfRequired(promise: Promise) {
+    presentConsent(promise) { activity, callback ->
+      EzoicAds.instance.presentConsentIfRequired(activity, callback)
+    }
+  }
+
+  override fun presentConsentSettings(promise: Promise) {
+    presentConsent(promise) { activity, callback ->
+      EzoicAds.instance.presentConsentSettings(activity, callback)
+    }
+  }
+
+  override fun isConsentRequired(promise: Promise) {
+    promise.resolve(EzoicAds.instance.isConsentRequired)
+  }
+
+  override fun resetConsent() {
+    UiThreadUtil.runOnUiThread { EzoicAds.instance.resetConsent() }
+  }
+
+  /**
+   * Presents from the foreground Activity on the UI thread and always resolves
+   * with an outcome map; with no Activity it resolves `failed(-1)`.
+   */
+  private fun presentConsent(
+    promise: Promise,
+    present: (Activity, (ConsentOutcome) -> Unit) -> Unit
+  ) {
+    val activity = currentActivity
+    if (activity == null) {
+      promise.resolve(consentFailureMap(NO_ACTIVITY_CODE, NO_ACTIVITY_MESSAGE))
+      return
+    }
+    activity.runOnUiThread {
+      present(activity) { outcome -> promise.resolve(outcome.toWritableMap()) }
     }
   }
 
@@ -483,11 +525,47 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       .emit(INTERSTITIAL_EVENT, map)
   }
 
+  private fun consentFailureMap(code: Int, message: String): WritableMap =
+    Arguments.createMap().apply {
+      putString("type", "failed")
+      putInt("code", code)
+      putString("message", message)
+    }
+
+  private fun ConsentOutcome.toWritableMap(): WritableMap {
+    if (this is ConsentOutcome.Failed) return consentFailureMap(error.code, error.message)
+    val map = Arguments.createMap()
+    map.putString(
+      "type",
+      when (this) {
+        ConsentOutcome.NotRequired -> "notRequired"
+        ConsentOutcome.AlreadyDecided -> "alreadyDecided"
+        ConsentOutcome.Dismissed -> "dismissed"
+        ConsentOutcome.AlreadyPresenting -> "alreadyPresenting"
+        is ConsentOutcome.Decided -> "decided"
+        is ConsentOutcome.Failed -> "failed"
+      }
+    )
+    if (this is ConsentOutcome.Decided) {
+      map.putString(
+        "decision",
+        when (decision) {
+          ConsentDecisionType.ACCEPT_ALL -> "acceptAll"
+          ConsentDecisionType.REJECT_ALL -> "rejectAll"
+          ConsentDecisionType.CUSTOM -> "custom"
+        }
+      )
+    }
+    return map
+  }
+
   private fun ReadableMap.optBool(key: String, default: Boolean): Boolean =
     if (hasKey(key) && !isNull(key)) getBoolean(key) else default
 
   companion object {
     const val NAME = NativeEzoicAdsSpec.NAME
+    private const val NO_ACTIVITY_CODE = -1
+    private const val NO_ACTIVITY_MESSAGE = "No foreground Activity"
     private const val REWARDED_EVENT = "EzoicRewardedAdEvent"
     private const val INTERSTITIAL_EVENT = "EzoicInterstitialAdEvent"
   }

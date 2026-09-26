@@ -1,5 +1,6 @@
 #import "EzoicReactNativeSdk.h"
 #import <EzoicReactNativeSdk/EzoicReactNativeSdk-Swift.h>
+#import <React/RCTUtils.h>
 
 static NSString *const kEzoicRewardedEvent = @"EzoicRewardedAdEvent";
 static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
@@ -21,6 +22,9 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
       if (strongSelf != nil && strongSelf->_hasListeners) {
         [strongSelf sendEventWithName:name body:body];
       }
+    };
+    _impl.hostViewControllerProvider = ^UIViewController *_Nullable {
+      return RCTPresentedViewController();
     };
   }
   return self;
@@ -81,6 +85,22 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
               resolve:(RCTPromiseResolveBlock)resolve
                reject:(RCTPromiseRejectBlock)reject {
   [_impl trackPageview:screen resolve:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)presentConsentIfRequired:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl presentConsentIfRequired:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)presentConsentSettings:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl presentConsentSettings:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)isConsentRequired:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl isConsentRequired:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)resetConsent {
+  [_impl resetConsent];
 }
 
 - (void)loadRewardedAd:(NSString *)adUnitIdentifier

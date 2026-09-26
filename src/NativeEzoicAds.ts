@@ -28,12 +28,31 @@ export interface EzoicRewardResult {
   amount: number;
 }
 
+/**
+ * Wire format of a consent outcome from the native glue (see
+ * `parseConsentOutcome`): `type` is one of `notRequired`, `alreadyDecided`,
+ * `dismissed`, `alreadyPresenting`, `decided` (with `decision`) or `failed`
+ * (with `code` and `message`).
+ */
+export interface EzoicConsentOutcomeRaw {
+  type: string;
+  decision?: string;
+  code?: number;
+  message?: string;
+}
+
 export interface Spec extends TurboModule {
   initialize(config: EzoicConfig): Promise<void>;
   setGDPRConsent(applies: boolean, consentString?: string): void;
   setGPPConsent(gppString?: string, sectionIds?: string): void;
   setSubjectToCOPPA(value: boolean): void;
   trackPageview(screen: string | null): Promise<boolean>;
+  // Consent: the present* promises always resolve (never reject); a missing
+  // host Activity / view controller resolves as failed(-1).
+  presentConsentIfRequired(): Promise<EzoicConsentOutcomeRaw>;
+  presentConsentSettings(): Promise<EzoicConsentOutcomeRaw>;
+  isConsentRequired(): Promise<boolean | null>;
+  resetConsent(): void;
   loadRewardedAd(adUnitIdentifier: string): Promise<void>;
   showRewardedAd(
     adUnitIdentifier: string,

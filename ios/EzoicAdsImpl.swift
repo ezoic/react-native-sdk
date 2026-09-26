@@ -1,10 +1,15 @@
 import Foundation
+import UIKit
 import EzoicAdsSDKBinary
 
 @objc public class EzoicAdsImpl: NSObject {
 
   /// Set by the Obj-C module to forward rewarded lifecycle events to JS.
   @objc public var eventEmitter: ((String, [String: Any]) -> Void)?
+
+  /// Set by the Obj-C module to resolve the view controller consent dialogs
+  /// are presented from (`RCTPresentedViewController()`). Called on main.
+  @objc public var hostViewControllerProvider: (() -> UIViewController?)?
 
   /// Loaded rewarded ads awaiting `show`, keyed by ad unit id.
   private var rewardedAds: [Int: EzoicRewardedAd] = [:]
@@ -79,7 +84,7 @@ import EzoicAdsSDKBinary
   @objc public func initialize(_ config: NSDictionary,
                                resolve: @escaping (Any?) -> Void,
                                reject: @escaping (String, String, NSError?) -> Void) {
-    onMain {
+    onMain { [weak self] in
       guard let domain = config["domain"] as? String, !domain.isEmpty else {
         reject("EzoicAds", "initialize requires a non-empty `domain`.", nil)
         return
@@ -90,12 +95,18 @@ import EzoicAdsSDKBinary
         subjectToCOPPA: (config["subjectToCOPPA"] as? Bool) ?? false,
         requestATTBeforeAds: (config["requestATTBeforeAds"] as? Bool) ?? true,
         debugEnabled: (config["debugEnabled"] as? Bool) ?? false,
-        testMode: (config["testMode"] as? Bool) ?? false
+        testMode: (config["testMode"] as? Bool) ?? false,
+        autoTrackPageviews: (config["autoTrackPageviews"] as? Bool) ?? true,
+        cmpEnabled: (config["cmpEnabled"] as? Bool) ?? true
       )
+      let autoPresentConsent = (config["autoPresentConsent"] as? Bool) ?? true
       EzoicAds.shared.initialize(with: configuration) { result in
         switch result {
         case .success:
           resolve(nil)
+          if autoPresentConsent {
+            self?.presentConsentAfterInit(debug: configuration.debugEnabled)
+          }
         case .failure(let error):
           reject("EzoicAds", error.localizedDescription, error as NSError)
         }
@@ -121,11 +132,114 @@ import EzoicAdsSDKBinary
     }
   }
 
-  @objc public func trackPageview(_ resolve: @escaping (Any?) -> Void) {
+  @objc public func trackPageview(_ screen: String?, resolve: @escaping (Any?) -> Void) {
     onMain {
-      EzoicAds.shared.trackPageview { success in
-        resolve(NSNumber(value: success))
+      let completion: (Bool) -> Void = { success in resolve(NSNumber(value: success)) }
+      if let screen = screen, !screen.isEmpty {
+        EzoicAds.shared.trackPageview(screen: screen, completion: completion)
+      } else {
+        EzoicAds.shared.trackPageview(completion: completion)
       }
+    }
+  }
+
+  /// `error` as an `NSError` whose `userInfo` also carries the numeric
+  /// `EzoicError.code`, which JS reads as `error.userInfo.code` on a rejected load.
+  private static func loadError(_ error: EzoicError) -> NSError {
+    let bridged = error as NSError
+    var userInfo = bridged.userInfo
+    userInfo[NSLocalizedDescriptionKey] = error.localizedDescription
+    userInfo["code"] = error.code
+    return NSError(domain: bridged.domain, code: bridged.code, userInfo: userInfo)
+  }
+
+  // MARK: - Consent
+
+  /// Presents the consent dialog once after a successful `initialize`. Native
+  /// returns `.notRequired` outside GDPR / with `cmpEnabled: false` / with
+  /// another CMP or manual consent, so this is a no-op there. The outcome is
+  /// only logged; publishers wanting it call `presentConsentIfRequired`.
+  private func presentConsentAfterInit(debug: Bool) {
+    onMain { [weak self] in
+      guard let host = self?.hostViewControllerProvider?() else {
+        if debug { NSLog("[EzoicReactNativeSdk] autoPresentConsent skipped: no foreground view controller") }
+        return
+      }
+      EzoicAds.shared.presentConsentIfRequired(from: host) { outcome in
+        if debug { NSLog("[EzoicReactNativeSdk] autoPresentConsent outcome: %@", String(describing: outcome)) }
+      }
+    }
+  }
+
+  @objc public func presentConsentIfRequired(_ resolve: @escaping (Any?) -> Void) {
+    presentConsent(resolve) { host, completion in
+      EzoicAds.shared.presentConsentIfRequired(from: host, completion: completion)
+    }
+  }
+
+  @objc public func presentConsentSettings(_ resolve: @escaping (Any?) -> Void) {
+    presentConsent(resolve) { host, completion in
+      EzoicAds.shared.presentConsentSettings(from: host, completion: completion)
+    }
+  }
+
+  @objc public func isConsentRequired(_ resolve: @escaping (Any?) -> Void) {
+    onMain {
+      resolve(EzoicAds.shared.isConsentRequired.map { NSNumber(value: $0) })
+    }
+  }
+
+  @objc public func resetConsent() {
+    onMain {
+      EzoicAds.shared.resetConsent()
+    }
+  }
+
+  /// Presents from the top-most view controller on main and always resolves
+  /// with an outcome dictionary; with no view controller it resolves `failed(-1)`.
+  private func presentConsent(
+    _ resolve: @escaping (Any?) -> Void,
+    _ present: @escaping (UIViewController, @escaping (ConsentOutcome) -> Void) -> Void
+  ) {
+    onMain { [weak self] in
+      guard let host = self?.hostViewControllerProvider?() else {
+        resolve(Self.consentFailure(code: Self.noHostCode, message: Self.noHostMessage))
+        return
+      }
+      present(host) { outcome in resolve(Self.consentOutcomeMap(outcome)) }
+    }
+  }
+
+  private static let noHostCode = -1
+  private static let noHostMessage = "No foreground Activity"
+
+  private static func consentFailure(code: Int, message: String) -> [String: Any] {
+    return ["type": "failed", "code": code, "message": message]
+  }
+
+  private static func consentOutcomeMap(_ outcome: ConsentOutcome) -> [String: Any] {
+    switch outcome {
+    case .notRequired:
+      return ["type": "notRequired"]
+    case .alreadyDecided:
+      return ["type": "alreadyDecided"]
+    case .dismissed:
+      return ["type": "dismissed"]
+    case .alreadyPresenting:
+      return ["type": "alreadyPresenting"]
+    case .decided(let decision):
+      let name: String
+      switch decision {
+      case .acceptAll: name = "acceptAll"
+      case .rejectAll: name = "rejectAll"
+      case .custom: name = "custom"
+      @unknown default: return consentFailure(code: -1, message: "Unrecognized outcome")
+      }
+      return ["type": "decided", "decision": name]
+    case .failed(let error):
+      return consentFailure(code: error.code, message: error.localizedDescription)
+    @unknown default:
+      return consentFailure(code: -1, message: "Unrecognized outcome")
     }
   }
 
@@ -153,7 +267,7 @@ import EzoicAdsSDKBinary
             self.rewardedAds[id] = ad
             resolve(nil)
           case .failure(let error):
-            reject("EzoicAds", error.localizedDescription, error as NSError)
+            reject("EzoicAds", error.localizedDescription, Self.loadError(error))
           }
         }
       }
@@ -214,7 +328,7 @@ import EzoicAdsSDKBinary
             self.interstitialAds[id] = ad
             resolve(nil)
           case .failure(let error):
-            reject("EzoicAds", error.localizedDescription, error as NSError)
+            reject("EzoicAds", error.localizedDescription, Self.loadError(error))
           }
         }
       }
@@ -467,6 +581,6 @@ extension EzoicAdsImpl: EzoicInstreamAdDelegate {
     guard let pending = pendingInstreamLoads[id], !pending.settled else { return }
     pending.settled = true
     pendingInstreamLoads.removeValue(forKey: id)
-    pending.reject("EzoicAds", error.localizedDescription, error as NSError)
+    pending.reject("EzoicAds", error.localizedDescription, Self.loadError(error))
   }
 }

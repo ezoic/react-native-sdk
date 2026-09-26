@@ -5,8 +5,14 @@ import EzoicBannerNative from './EzoicBannerViewNativeComponent';
 import EzoicNativeAdNative from './EzoicNativeAdViewNativeComponent';
 import EzoicOutstreamNative from './EzoicOutstreamAdViewNativeComponent';
 import { coerceAdUnitId, normalizeConfig, normalizeSize } from './helpers';
+import {
+  consentFailure,
+  parseConsentOutcome,
+  type EzoicConsentOutcome,
+} from './EzoicConsent';
 
 export type { EzoicConfig };
+export type { EzoicConsentDecision, EzoicConsentOutcome } from './EzoicConsent';
 export {
   EzoicRewardedAd,
   type EzoicReward,
@@ -22,6 +28,27 @@ export {
   type EzoicInstreamImpressionOptions,
 } from './EzoicInstreamAd';
 
+/**
+ * Numeric native error codes: `code` on ad-view `onError` events, and
+ * `error.userInfo.code` on rejected rewarded / interstitial / instream
+ * `load()` promises (whose own `code` is the string `'EzoicAds'`).
+ */
+export const EzoicErrorCode = {
+  /**
+   * GDPR applies and the user hasn't decided: the ad load waited for the
+   * consent dialog and timed out. Call `EzoicAds.presentConsentIfRequired()`.
+   */
+  consentRequired: 5001,
+} as const;
+
+function presentConsent(
+  call: () => Promise<unknown>
+): Promise<EzoicConsentOutcome> {
+  return call().then(parseConsentOutcome, (e: unknown) =>
+    consentFailure(-1, e instanceof Error ? e.message : String(e))
+  );
+}
+
 export const EzoicAds = {
   initialize(config: EzoicConfig): Promise<void> {
     return NativeEzoicAds.initialize(normalizeConfig(config));
@@ -35,8 +62,41 @@ export const EzoicAds = {
   setSubjectToCOPPA(value: boolean): void {
     NativeEzoicAds.setSubjectToCOPPA(value);
   },
-  trackPageview(): Promise<boolean> {
-    return NativeEzoicAds.trackPageview();
+  /**
+   * Records a pageview. Pass a `screen` label (e.g. `'Home'`,
+   * `'members/profile'`) to name the screen in Ezoic reporting; without one
+   * the pageview lands on a single app-wide bucket.
+   */
+  trackPageview(screen?: string): Promise<boolean> {
+    return NativeEzoicAds.trackPageview(screen ?? null);
+  },
+  /**
+   * Shows the built-in consent dialog if this user must decide (GDPR applies,
+   * no valid stored decision). Runs automatically after `initialize` unless
+   * `autoPresentConsent: false`; repeat calls are harmless. Always resolves.
+   */
+  presentConsentIfRequired(): Promise<EzoicConsentOutcome> {
+    return presentConsent(() => NativeEzoicAds.presentConsentIfRequired());
+  },
+  /**
+   * Re-opens the consent dialog with the user's stored choices. TCF requires
+   * a persistent "Privacy settings" entry point that calls this. Always
+   * resolves.
+   */
+  presentConsentSettings(): Promise<EzoicConsentOutcome> {
+    return presentConsent(() => NativeEzoicAds.presentConsentSettings());
+  },
+  /**
+   * `true` when GDPR applies and the built-in CMP handles consent, `false`
+   * otherwise, `null` until the init request completes or when the server
+   * sent no consent information.
+   */
+  isConsentRequired(): Promise<boolean | null> {
+    return NativeEzoicAds.isConsentRequired().then((v) => v ?? null);
+  },
+  /** Deletes the decision stored by the built-in CMP so the dialog shows again. */
+  resetConsent(): void {
+    NativeEzoicAds.resetConsent();
   },
 };
 

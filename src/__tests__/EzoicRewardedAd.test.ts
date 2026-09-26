@@ -72,6 +72,16 @@ describe('EzoicRewardedAd.load', () => {
     await expect(EzoicRewardedAd.load('123')).rejects.toThrow('no fill');
     expect(handlerCount()).toBe(before);
   });
+
+  it('rejects with the native error unchanged, keeping userInfo.code', async () => {
+    const nativeError = Object.assign(
+      new Error('User consent is required to load ads.'),
+      { code: 'EzoicAds', userInfo: { code: 5001 } }
+    );
+    loadMock.mockImplementationOnce(() => Promise.reject(nativeError));
+    await expect(EzoicRewardedAd.load('123')).rejects.toBe(nativeError);
+    expect(nativeError.userInfo.code).toBe(5001);
+  });
 });
 
 describe('EzoicRewardedAd.show', () => {

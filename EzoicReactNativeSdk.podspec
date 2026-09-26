@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   s.platforms    = { :ios => min_ios_version_supported }
-  s.source       = { :git => "https://github.com/ezoic/react-native-sdk.git", :tag => "#{s.version}" }
+  s.source       = { :git => "https://github.com/ezoic/react-native-sdk.git", :tag => "v#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift,cpp}"
   s.private_header_files = "ios/**/*.h"
@@ -20,7 +20,7 @@ Pod::Spec.new do |s|
 
   # Native Ezoic Ads SDK (vends the `EzoicAdsSDKBinary` module). Brings in
   # PrebidMobile + Google-Mobile-Ads-SDK transitively.
-  s.dependency "EzoicAdsSDK", "~> 1.11.0"
+  s.dependency "EzoicAdsSDK", "~> 1.13.0"
   # The native-ad host imports GoogleMobileAds directly (NativeAdView,
   # MediaView, NativeAd). Pin GMA 12 so the module is on the compile path.
   s.dependency "Google-Mobile-Ads-SDK", "~> 12.0"

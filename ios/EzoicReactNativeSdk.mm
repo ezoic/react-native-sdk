@@ -1,5 +1,6 @@
 #import "EzoicReactNativeSdk.h"
 #import <EzoicReactNativeSdk/EzoicReactNativeSdk-Swift.h>
+#import <React/RCTUtils.h>
 
 static NSString *const kEzoicRewardedEvent = @"EzoicRewardedAdEvent";
 static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
@@ -21,6 +22,9 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
       if (strongSelf != nil && strongSelf->_hasListeners) {
         [strongSelf sendEventWithName:name body:body];
       }
+    };
+    _impl.hostViewControllerProvider = ^UIViewController *_Nullable {
+      return RCTPresentedViewController();
     };
   }
   return self;
@@ -57,6 +61,9 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   if (config.requestATTBeforeAds().has_value()) dict[@"requestATTBeforeAds"] = @(config.requestATTBeforeAds().value());
   if (config.debugEnabled().has_value()) dict[@"debugEnabled"] = @(config.debugEnabled().value());
   if (config.testMode().has_value()) dict[@"testMode"] = @(config.testMode().value());
+  if (config.autoTrackPageviews().has_value()) dict[@"autoTrackPageviews"] = @(config.autoTrackPageviews().value());
+  if (config.cmpEnabled().has_value()) dict[@"cmpEnabled"] = @(config.cmpEnabled().value());
+  if (config.autoPresentConsent().has_value()) dict[@"autoPresentConsent"] = @(config.autoPresentConsent().value());
   [_impl initialize:dict
             resolve:^(id _Nullable v) { resolve(v); }
              reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
@@ -74,8 +81,26 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   [_impl setSubjectToCOPPA:value];
 }
 
-- (void)trackPageview:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-  [_impl trackPageview:^(id _Nullable v) { resolve(v); }];
+- (void)trackPageview:(NSString * _Nullable)screen
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject {
+  [_impl trackPageview:screen resolve:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)presentConsentIfRequired:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl presentConsentIfRequired:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)presentConsentSettings:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl presentConsentSettings:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)isConsentRequired:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl isConsentRequired:^(id _Nullable v) { resolve(v); }];
+}
+
+- (void)resetConsent {
+  [_impl resetConsent];
 }
 
 - (void)loadRewardedAd:(NSString *)adUnitIdentifier

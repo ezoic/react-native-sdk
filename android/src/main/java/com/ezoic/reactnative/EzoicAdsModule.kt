@@ -1,10 +1,13 @@
 package com.ezoic.reactnative
 
+import android.app.Activity
 import android.app.Application
+import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.UiThreadUtil
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.ezoic.ads.sdk.adunits.EzoicInstreamAd
@@ -19,6 +22,8 @@ import com.ezoic.ads.sdk.adunits.EzoicRewardedAdListenerAdapter
 import com.ezoic.ads.sdk.core.EzoicAds
 import com.ezoic.ads.sdk.core.EzoicConfiguration
 import com.ezoic.ads.sdk.core.EzoicError
+import com.ezoic.ads.sdk.privacy.cmp.ConsentDecisionType
+import com.ezoic.ads.sdk.privacy.cmp.ConsentOutcome
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -93,11 +98,35 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       subjectToCOPPA = config.optBool("subjectToCOPPA", false),
       requestATTBeforeAds = config.optBool("requestATTBeforeAds", true),
       debugEnabled = config.optBool("debugEnabled", false),
-      testMode = config.optBool("testMode", false)
+      testMode = config.optBool("testMode", false),
+      autoTrackPageviews = config.optBool("autoTrackPageviews", true),
+      cmpEnabled = config.optBool("cmpEnabled", true)
     )
+    val autoPresentConsent = config.optBool("autoPresentConsent", true)
     EzoicAds.instance.initialize(app, configuration) { result ->
-      result.onSuccess { promise.resolve(null) }
-        .onFailure { e -> promise.reject("EzoicAds", e.message, e) }
+      result.onSuccess {
+        promise.resolve(null)
+        if (autoPresentConsent) presentConsentAfterInit(configuration.debugEnabled)
+      }.onFailure { e -> promise.reject("EzoicAds", e.message, e) }
+    }
+  }
+
+  /**
+   * Presents the consent dialog once after a successful `initialize`. Native
+   * returns `NotRequired` outside GDPR / with `cmpEnabled = false` / with
+   * another CMP or manual consent, so this is a no-op there. The outcome is
+   * only logged; publishers wanting it call `presentConsentIfRequired`.
+   */
+  private fun presentConsentAfterInit(debug: Boolean) {
+    val activity = currentActivity
+    if (activity == null) {
+      if (debug) Log.d(NAME, "autoPresentConsent skipped: no foreground Activity")
+      return
+    }
+    activity.runOnUiThread {
+      EzoicAds.instance.presentConsentIfRequired(activity) { outcome ->
+        if (debug) Log.d(NAME, "autoPresentConsent outcome: $outcome")
+      }
     }
   }
 
@@ -113,8 +142,50 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     EzoicAds.instance.setSubjectToCOPPA(value)
   }
 
-  override fun trackPageview(promise: Promise) {
-    EzoicAds.instance.trackPageview { success -> promise.resolve(success) }
+  override fun trackPageview(screen: String?, promise: Promise) {
+    if (screen.isNullOrEmpty()) {
+      EzoicAds.instance.trackPageview { success -> promise.resolve(success) }
+    } else {
+      EzoicAds.instance.trackPageview(screen) { success -> promise.resolve(success) }
+    }
+  }
+
+  override fun presentConsentIfRequired(promise: Promise) {
+    presentConsent(promise) { activity, callback ->
+      EzoicAds.instance.presentConsentIfRequired(activity, callback)
+    }
+  }
+
+  override fun presentConsentSettings(promise: Promise) {
+    presentConsent(promise) { activity, callback ->
+      EzoicAds.instance.presentConsentSettings(activity, callback)
+    }
+  }
+
+  override fun isConsentRequired(promise: Promise) {
+    UiThreadUtil.runOnUiThread { promise.resolve(EzoicAds.instance.isConsentRequired) }
+  }
+
+  override fun resetConsent() {
+    UiThreadUtil.runOnUiThread { EzoicAds.instance.resetConsent() }
+  }
+
+  /**
+   * Presents from the foreground Activity on the UI thread and always resolves
+   * with an outcome map; with no Activity it resolves `failed(-1)`.
+   */
+  private fun presentConsent(
+    promise: Promise,
+    present: (Activity, (ConsentOutcome) -> Unit) -> Unit
+  ) {
+    val activity = currentActivity
+    if (activity == null) {
+      promise.resolve(consentFailureMap(NO_ACTIVITY_CODE, NO_ACTIVITY_MESSAGE))
+      return
+    }
+    activity.runOnUiThread {
+      present(activity) { outcome -> promise.resolve(outcome.toWritableMap()) }
+    }
   }
 
   override fun loadRewardedAd(adUnitIdentifier: String, promise: Promise) {
@@ -134,7 +205,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         rewardedAds[id] = ad
         promise.resolve(null)
       }.onFailure { e ->
-        promise.reject("EzoicAds", e.message ?: "Rewarded ad failed to load", e)
+        promise.rejectLoad(e, "Rewarded ad failed to load")
       }
     }
   }
@@ -216,7 +287,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         interstitialAds[id] = ad
         promise.resolve(null)
       }.onFailure { e ->
-        promise.reject("EzoicAds", e.message ?: "Interstitial ad failed to load", e)
+        promise.rejectLoad(e, "Interstitial ad failed to load")
       }
     }
   }
@@ -305,9 +376,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       override fun onAdFailedToLoad(error: EzoicError) {
         if (holder.settled.compareAndSet(false, true)) {
           loadingInstream.remove(id)
-          val userInfo = Arguments.createMap()
-          userInfo.putInt("code", error.code)
-          promise.reject("EzoicAds", error.message ?: "Instream ad failed to load", userInfo)
+          promise.rejectLoad(error, "Instream ad failed to load")
         }
       }
     })
@@ -477,11 +546,52 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       .emit(INTERSTITIAL_EVENT, map)
   }
 
+  /**
+   * Rejects a load with the string code "EzoicAds" and, for native errors, the
+   * numeric `EzoicError.code` in `userInfo` (JS: `error.userInfo.code`).
+   */
+  private fun Promise.rejectLoad(e: Throwable, fallbackMessage: String) {
+    val userInfo = (e as? EzoicError)?.let { error ->
+      Arguments.createMap().apply { putInt("code", error.code) }
+    }
+    reject("EzoicAds", e.message ?: fallbackMessage, e, userInfo)
+  }
+
+  private fun consentFailureMap(code: Int, message: String): WritableMap =
+    Arguments.createMap().apply {
+      putString("type", "failed")
+      putInt("code", code)
+      putString("message", message)
+    }
+
+  private fun ConsentOutcome.toWritableMap(): WritableMap = when (this) {
+    ConsentOutcome.NotRequired -> consentTypeMap("notRequired")
+    ConsentOutcome.AlreadyDecided -> consentTypeMap("alreadyDecided")
+    ConsentOutcome.Dismissed -> consentTypeMap("dismissed")
+    ConsentOutcome.AlreadyPresenting -> consentTypeMap("alreadyPresenting")
+    is ConsentOutcome.Decided -> consentTypeMap("decided").apply {
+      putString(
+        "decision",
+        when (decision) {
+          ConsentDecisionType.ACCEPT_ALL -> "acceptAll"
+          ConsentDecisionType.REJECT_ALL -> "rejectAll"
+          ConsentDecisionType.CUSTOM -> "custom"
+        }
+      )
+    }
+    is ConsentOutcome.Failed -> consentFailureMap(error.code, error.message)
+  }
+
+  private fun consentTypeMap(type: String): WritableMap =
+    Arguments.createMap().apply { putString("type", type) }
+
   private fun ReadableMap.optBool(key: String, default: Boolean): Boolean =
     if (hasKey(key) && !isNull(key)) getBoolean(key) else default
 
   companion object {
     const val NAME = NativeEzoicAdsSpec.NAME
+    private const val NO_ACTIVITY_CODE = -1
+    private const val NO_ACTIVITY_MESSAGE = "No foreground Activity"
     private const val REWARDED_EVENT = "EzoicRewardedAdEvent"
     private const val INTERSTITIAL_EVENT = "EzoicInterstitialAdEvent"
   }

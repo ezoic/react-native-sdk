@@ -105,7 +105,7 @@ import EzoicAdsSDKBinary
         case .success:
           resolve(nil)
           if autoPresentConsent {
-            self?.autoPresentConsent(debug: configuration.debugEnabled)
+            self?.presentConsentAfterInit(debug: configuration.debugEnabled)
           }
         case .failure(let error):
           reject("EzoicAds", error.localizedDescription, error as NSError)
@@ -159,7 +159,7 @@ import EzoicAdsSDKBinary
   /// returns `.notRequired` outside GDPR / with `cmpEnabled: false` / with
   /// another CMP or manual consent, so this is a no-op there. The outcome is
   /// only logged; publishers wanting it call `presentConsentIfRequired`.
-  private func autoPresentConsent(debug: Bool) {
+  private func presentConsentAfterInit(debug: Bool) {
     onMain { [weak self] in
       guard let host = self?.hostViewControllerProvider?() else {
         if debug { NSLog("[EzoicReactNativeSdk] autoPresentConsent skipped: no foreground view controller") }

@@ -106,7 +106,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     EzoicAds.instance.initialize(app, configuration) { result ->
       result.onSuccess {
         promise.resolve(null)
-        if (autoPresentConsent) autoPresentConsent(configuration.debugEnabled)
+        if (autoPresentConsent) presentConsentAfterInit(configuration.debugEnabled)
       }.onFailure { e -> promise.reject("EzoicAds", e.message, e) }
     }
   }
@@ -117,7 +117,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
    * another CMP or manual consent, so this is a no-op there. The outcome is
    * only logged; publishers wanting it call `presentConsentIfRequired`.
    */
-  private fun autoPresentConsent(debug: Boolean) {
+  private fun presentConsentAfterInit(debug: Boolean) {
     val activity = currentActivity
     if (activity == null) {
       if (debug) Log.d(NAME, "autoPresentConsent skipped: no foreground Activity")
@@ -163,7 +163,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
   }
 
   override fun isConsentRequired(promise: Promise) {
-    promise.resolve(EzoicAds.instance.isConsentRequired)
+    UiThreadUtil.runOnUiThread { promise.resolve(EzoicAds.instance.isConsentRequired) }
   }
 
   override fun resetConsent() {
@@ -564,22 +564,13 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       putString("message", message)
     }
 
-  private fun ConsentOutcome.toWritableMap(): WritableMap {
-    if (this is ConsentOutcome.Failed) return consentFailureMap(error.code, error.message)
-    val map = Arguments.createMap()
-    map.putString(
-      "type",
-      when (this) {
-        ConsentOutcome.NotRequired -> "notRequired"
-        ConsentOutcome.AlreadyDecided -> "alreadyDecided"
-        ConsentOutcome.Dismissed -> "dismissed"
-        ConsentOutcome.AlreadyPresenting -> "alreadyPresenting"
-        is ConsentOutcome.Decided -> "decided"
-        is ConsentOutcome.Failed -> "failed"
-      }
-    )
-    if (this is ConsentOutcome.Decided) {
-      map.putString(
+  private fun ConsentOutcome.toWritableMap(): WritableMap = when (this) {
+    ConsentOutcome.NotRequired -> consentTypeMap("notRequired")
+    ConsentOutcome.AlreadyDecided -> consentTypeMap("alreadyDecided")
+    ConsentOutcome.Dismissed -> consentTypeMap("dismissed")
+    ConsentOutcome.AlreadyPresenting -> consentTypeMap("alreadyPresenting")
+    is ConsentOutcome.Decided -> consentTypeMap("decided").apply {
+      putString(
         "decision",
         when (decision) {
           ConsentDecisionType.ACCEPT_ALL -> "acceptAll"
@@ -588,8 +579,11 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         }
       )
     }
-    return map
+    is ConsentOutcome.Failed -> consentFailureMap(error.code, error.message)
   }
+
+  private fun consentTypeMap(type: String): WritableMap =
+    Arguments.createMap().apply { putString("type", type) }
 
   private fun ReadableMap.optBool(key: String, default: Boolean): Boolean =
     if (hasKey(key) && !isNull(key)) getBoolean(key) else default

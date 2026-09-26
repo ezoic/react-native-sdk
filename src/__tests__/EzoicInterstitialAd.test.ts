@@ -69,6 +69,16 @@ describe('EzoicInterstitialAd.load', () => {
     // Failed load must not leak a subscription.
     expect(handlerCount()).toBe(before);
   });
+
+  it('rejects with the native error unchanged, keeping userInfo.code', async () => {
+    const nativeError = Object.assign(
+      new Error('User consent is required to load ads.'),
+      { code: 'EzoicAds', userInfo: { code: 5001 } }
+    );
+    loadMock.mockImplementationOnce(() => Promise.reject(nativeError));
+    await expect(EzoicInterstitialAd.load('123')).rejects.toBe(nativeError);
+    expect(nativeError.userInfo.code).toBe(5001);
+  });
 });
 
 describe('EzoicInterstitialAd.show', () => {

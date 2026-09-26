@@ -287,13 +287,21 @@ await EzoicAds.initialize({ domain: 'example.com', cmpEnabled: false });
 
 When GDPR applies and the user hasn't decided, ad loads fail after the wait
 described above with code `5001`, exported as `EzoicErrorCode.consentRequired`.
-It arrives as `code` on the ad views' `onError` and on the rewarded /
-interstitial `onFailedToShow` listeners; rewarded, interstitial and instream
-`load()` rejections carry the native message ("User consent is required to load
-ads.").
+Consent is checked when an ad loads, so the code arrives as:
+
+- `code` on the ad views' `onError` (banner, native, outstream);
+- `error.userInfo.code` on rejected rewarded, interstitial and instream
+  `load()` promises. The rejection's own `code` stays the string `'EzoicAds'`
+  and its `message` is the native one ("User consent is required to load
+  ads.").
 
 ```tsx
-import { EzoicErrorCode } from '@ezoic/react-native-sdk';
+import {
+  EzoicAds,
+  EzoicBannerView,
+  EzoicErrorCode,
+  EzoicRewardedAd,
+} from '@ezoic/react-native-sdk';
 
 <EzoicBannerView
   adUnitIdentifier="123456"
@@ -303,6 +311,15 @@ import { EzoicErrorCode } from '@ezoic/react-native-sdk';
     }
   }}
 />;
+
+try {
+  const ad = await EzoicRewardedAd.load('123456');
+  await ad.show();
+} catch (e: any) {
+  if (e?.userInfo?.code === EzoicErrorCode.consentRequired) {
+    await EzoicAds.presentConsentIfRequired();
+  }
+}
 ```
 
 ## Pageview labelling

@@ -29,8 +29,9 @@ export {
 } from './EzoicInstreamAd';
 
 /**
- * Numeric error codes reported by ad-view `onError` events and load
- * rejections (`code`).
+ * Numeric native error codes: `code` on ad-view `onError` events, and
+ * `error.userInfo.code` on rejected rewarded / interstitial / instream
+ * `load()` promises (whose own `code` is the string `'EzoicAds'`).
  */
 export const EzoicErrorCode = {
   /**

@@ -143,6 +143,16 @@ import EzoicAdsSDKBinary
     }
   }
 
+  /// `error` as an `NSError` whose `userInfo` also carries the numeric
+  /// `EzoicError.code`, which JS reads as `error.userInfo.code` on a rejected load.
+  private static func loadError(_ error: EzoicError) -> NSError {
+    let bridged = error as NSError
+    var userInfo = bridged.userInfo
+    userInfo[NSLocalizedDescriptionKey] = error.localizedDescription
+    userInfo["code"] = error.code
+    return NSError(domain: bridged.domain, code: bridged.code, userInfo: userInfo)
+  }
+
   // MARK: - Consent
 
   /// Presents the consent dialog once after a successful `initialize`. Native
@@ -257,7 +267,7 @@ import EzoicAdsSDKBinary
             self.rewardedAds[id] = ad
             resolve(nil)
           case .failure(let error):
-            reject("EzoicAds", error.localizedDescription, error as NSError)
+            reject("EzoicAds", error.localizedDescription, Self.loadError(error))
           }
         }
       }
@@ -318,7 +328,7 @@ import EzoicAdsSDKBinary
             self.interstitialAds[id] = ad
             resolve(nil)
           case .failure(let error):
-            reject("EzoicAds", error.localizedDescription, error as NSError)
+            reject("EzoicAds", error.localizedDescription, Self.loadError(error))
           }
         }
       }
@@ -571,6 +581,6 @@ extension EzoicAdsImpl: EzoicInstreamAdDelegate {
     guard let pending = pendingInstreamLoads[id], !pending.settled else { return }
     pending.settled = true
     pendingInstreamLoads.removeValue(forKey: id)
-    pending.reject("EzoicAds", error.localizedDescription, error as NSError)
+    pending.reject("EzoicAds", error.localizedDescription, Self.loadError(error))
   }
 }

@@ -61,7 +61,7 @@ export function parseConsentOutcome(raw: unknown): EzoicConsentOutcome {
     if (type === 'failed') {
       return consentFailure(
         typeof code === 'number' ? code : -1,
-        typeof message === 'string' ? message : ''
+        typeof message === 'string' ? message : 'Unknown error'
       );
     }
   }

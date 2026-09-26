@@ -93,7 +93,9 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       subjectToCOPPA = config.optBool("subjectToCOPPA", false),
       requestATTBeforeAds = config.optBool("requestATTBeforeAds", true),
       debugEnabled = config.optBool("debugEnabled", false),
-      testMode = config.optBool("testMode", false)
+      testMode = config.optBool("testMode", false),
+      autoTrackPageviews = config.optBool("autoTrackPageviews", true),
+      cmpEnabled = config.optBool("cmpEnabled", true)
     )
     EzoicAds.instance.initialize(app, configuration) { result ->
       result.onSuccess { promise.resolve(null) }

@@ -57,6 +57,9 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   if (config.requestATTBeforeAds().has_value()) dict[@"requestATTBeforeAds"] = @(config.requestATTBeforeAds().value());
   if (config.debugEnabled().has_value()) dict[@"debugEnabled"] = @(config.debugEnabled().value());
   if (config.testMode().has_value()) dict[@"testMode"] = @(config.testMode().value());
+  if (config.autoTrackPageviews().has_value()) dict[@"autoTrackPageviews"] = @(config.autoTrackPageviews().value());
+  if (config.cmpEnabled().has_value()) dict[@"cmpEnabled"] = @(config.cmpEnabled().value());
+  if (config.autoPresentConsent().has_value()) dict[@"autoPresentConsent"] = @(config.autoPresentConsent().value());
   [_impl initialize:dict
             resolve:^(id _Nullable v) { resolve(v); }
              reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];

@@ -17,6 +17,27 @@ describe('normalizeConfig', () => {
       normalizeConfig({ domain: 'x.com', debugEnabled: true, testMode: false })
     ).toEqual({ domain: 'x.com', debugEnabled: true, testMode: false });
   });
+  it('keeps the 1.13 pageview and consent flags', () => {
+    expect(
+      normalizeConfig({
+        domain: 'x.com',
+        autoTrackPageviews: false,
+        cmpEnabled: false,
+        autoPresentConsent: false,
+      })
+    ).toEqual({
+      domain: 'x.com',
+      autoTrackPageviews: false,
+      cmpEnabled: false,
+      autoPresentConsent: false,
+    });
+  });
+  it('omits the 1.13 flags when unset so native defaults (true) apply', () => {
+    const out = normalizeConfig({ domain: 'x.com' });
+    expect(out).not.toHaveProperty('autoTrackPageviews');
+    expect(out).not.toHaveProperty('cmpEnabled');
+    expect(out).not.toHaveProperty('autoPresentConsent');
+  });
   it('throws when domain is missing', () => {
     // @ts-expect-error intentionally invalid
     expect(() => normalizeConfig({})).toThrow(/domain/i);

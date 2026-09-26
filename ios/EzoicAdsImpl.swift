@@ -90,7 +90,9 @@ import EzoicAdsSDKBinary
         subjectToCOPPA: (config["subjectToCOPPA"] as? Bool) ?? false,
         requestATTBeforeAds: (config["requestATTBeforeAds"] as? Bool) ?? true,
         debugEnabled: (config["debugEnabled"] as? Bool) ?? false,
-        testMode: (config["testMode"] as? Bool) ?? false
+        testMode: (config["testMode"] as? Bool) ?? false,
+        autoTrackPageviews: (config["autoTrackPageviews"] as? Bool) ?? true,
+        cmpEnabled: (config["cmpEnabled"] as? Bool) ?? true
       )
       EzoicAds.shared.initialize(with: configuration) { result in
         switch result {

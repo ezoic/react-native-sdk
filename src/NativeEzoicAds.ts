@@ -8,6 +8,12 @@ export interface EzoicConfig {
   requestATTBeforeAds?: boolean;
   debugEnabled?: boolean;
   testMode?: boolean;
+  /** Record a pageview automatically on native screen changes. Default `true`. */
+  autoTrackPageviews?: boolean;
+  /** Enable the built-in TCF CMP for GDPR regions. Default `true`; set `false` if you run your own CMP. */
+  cmpEnabled?: boolean;
+  /** Present the consent dialog (if required) right after `initialize` succeeds. Default `true`. */
+  autoPresentConsent?: boolean;
 }
 
 /**

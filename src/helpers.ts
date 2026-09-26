@@ -13,6 +13,11 @@ export function normalizeConfig(config: EzoicConfig): EzoicConfig {
     out.requestATTBeforeAds = config.requestATTBeforeAds;
   if (config.debugEnabled !== undefined) out.debugEnabled = config.debugEnabled;
   if (config.testMode !== undefined) out.testMode = config.testMode;
+  if (config.autoTrackPageviews !== undefined)
+    out.autoTrackPageviews = config.autoTrackPageviews;
+  if (config.cmpEnabled !== undefined) out.cmpEnabled = config.cmpEnabled;
+  if (config.autoPresentConsent !== undefined)
+    out.autoPresentConsent = config.autoPresentConsent;
   return out;
 }
 

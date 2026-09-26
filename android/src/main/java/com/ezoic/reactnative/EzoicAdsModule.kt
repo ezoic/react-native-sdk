@@ -115,8 +115,12 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     EzoicAds.instance.setSubjectToCOPPA(value)
   }
 
-  override fun trackPageview(promise: Promise) {
-    EzoicAds.instance.trackPageview { success -> promise.resolve(success) }
+  override fun trackPageview(screen: String?, promise: Promise) {
+    if (screen.isNullOrEmpty()) {
+      EzoicAds.instance.trackPageview { success -> promise.resolve(success) }
+    } else {
+      EzoicAds.instance.trackPageview(screen) { success -> promise.resolve(success) }
+    }
   }
 
   override fun loadRewardedAd(adUnitIdentifier: String, promise: Promise) {

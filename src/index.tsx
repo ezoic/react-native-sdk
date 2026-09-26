@@ -35,8 +35,13 @@ export const EzoicAds = {
   setSubjectToCOPPA(value: boolean): void {
     NativeEzoicAds.setSubjectToCOPPA(value);
   },
-  trackPageview(): Promise<boolean> {
-    return NativeEzoicAds.trackPageview();
+  /**
+   * Records a pageview. Pass a `screen` label (e.g. `'Home'`,
+   * `'members/profile'`) to name the screen in Ezoic reporting; without one
+   * the pageview lands on a single app-wide bucket.
+   */
+  trackPageview(screen?: string): Promise<boolean> {
+    return NativeEzoicAds.trackPageview(screen ?? null);
   },
 };
 

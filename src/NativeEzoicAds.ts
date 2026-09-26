@@ -33,7 +33,7 @@ export interface Spec extends TurboModule {
   setGDPRConsent(applies: boolean, consentString?: string): void;
   setGPPConsent(gppString?: string, sectionIds?: string): void;
   setSubjectToCOPPA(value: boolean): void;
-  trackPageview(): Promise<boolean>;
+  trackPageview(screen: string | null): Promise<boolean>;
   loadRewardedAd(adUnitIdentifier: string): Promise<void>;
   showRewardedAd(
     adUnitIdentifier: string,

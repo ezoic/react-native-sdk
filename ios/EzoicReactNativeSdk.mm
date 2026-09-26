@@ -77,8 +77,10 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   [_impl setSubjectToCOPPA:value];
 }
 
-- (void)trackPageview:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
-  [_impl trackPageview:^(id _Nullable v) { resolve(v); }];
+- (void)trackPageview:(NSString * _Nullable)screen
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject {
+  [_impl trackPageview:screen resolve:^(id _Nullable v) { resolve(v); }];
 }
 
 - (void)loadRewardedAd:(NSString *)adUnitIdentifier

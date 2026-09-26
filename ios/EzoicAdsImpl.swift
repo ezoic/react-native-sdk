@@ -123,10 +123,13 @@ import EzoicAdsSDKBinary
     }
   }
 
-  @objc public func trackPageview(_ resolve: @escaping (Any?) -> Void) {
+  @objc public func trackPageview(_ screen: String?, resolve: @escaping (Any?) -> Void) {
     onMain {
-      EzoicAds.shared.trackPageview { success in
-        resolve(NSNumber(value: success))
+      let completion: (Bool) -> Void = { success in resolve(NSNumber(value: success)) }
+      if let screen = screen, !screen.isEmpty {
+        EzoicAds.shared.trackPageview(screen: screen, completion: completion)
+      } else {
+        EzoicAds.shared.trackPageview(completion: completion)
       }
     }
   }

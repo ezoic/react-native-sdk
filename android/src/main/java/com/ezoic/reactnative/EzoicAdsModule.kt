@@ -2,6 +2,7 @@ package com.ezoic.reactnative
 
 import android.app.Activity
 import android.app.Application
+import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -101,9 +102,31 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       autoTrackPageviews = config.optBool("autoTrackPageviews", true),
       cmpEnabled = config.optBool("cmpEnabled", true)
     )
+    val autoPresentConsent = config.optBool("autoPresentConsent", true)
     EzoicAds.instance.initialize(app, configuration) { result ->
-      result.onSuccess { promise.resolve(null) }
-        .onFailure { e -> promise.reject("EzoicAds", e.message, e) }
+      result.onSuccess {
+        promise.resolve(null)
+        if (autoPresentConsent) autoPresentConsent(configuration.debugEnabled)
+      }.onFailure { e -> promise.reject("EzoicAds", e.message, e) }
+    }
+  }
+
+  /**
+   * Presents the consent dialog once after a successful `initialize`. Native
+   * returns `NotRequired` outside GDPR / with `cmpEnabled = false` / with
+   * another CMP or manual consent, so this is a no-op there. The outcome is
+   * only logged; publishers wanting it call `presentConsentIfRequired`.
+   */
+  private fun autoPresentConsent(debug: Boolean) {
+    val activity = currentActivity
+    if (activity == null) {
+      if (debug) Log.d(NAME, "autoPresentConsent skipped: no foreground Activity")
+      return
+    }
+    activity.runOnUiThread {
+      EzoicAds.instance.presentConsentIfRequired(activity) { outcome ->
+        if (debug) Log.d(NAME, "autoPresentConsent outcome: $outcome")
+      }
     }
   }
 

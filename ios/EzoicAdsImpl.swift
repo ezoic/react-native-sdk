@@ -84,7 +84,7 @@ import EzoicAdsSDKBinary
   @objc public func initialize(_ config: NSDictionary,
                                resolve: @escaping (Any?) -> Void,
                                reject: @escaping (String, String, NSError?) -> Void) {
-    onMain {
+    onMain { [weak self] in
       guard let domain = config["domain"] as? String, !domain.isEmpty else {
         reject("EzoicAds", "initialize requires a non-empty `domain`.", nil)
         return
@@ -99,10 +99,14 @@ import EzoicAdsSDKBinary
         autoTrackPageviews: (config["autoTrackPageviews"] as? Bool) ?? true,
         cmpEnabled: (config["cmpEnabled"] as? Bool) ?? true
       )
+      let autoPresentConsent = (config["autoPresentConsent"] as? Bool) ?? true
       EzoicAds.shared.initialize(with: configuration) { result in
         switch result {
         case .success:
           resolve(nil)
+          if autoPresentConsent {
+            self?.autoPresentConsent(debug: configuration.debugEnabled)
+          }
         case .failure(let error):
           reject("EzoicAds", error.localizedDescription, error as NSError)
         }
@@ -140,6 +144,22 @@ import EzoicAdsSDKBinary
   }
 
   // MARK: - Consent
+
+  /// Presents the consent dialog once after a successful `initialize`. Native
+  /// returns `.notRequired` outside GDPR / with `cmpEnabled: false` / with
+  /// another CMP or manual consent, so this is a no-op there. The outcome is
+  /// only logged; publishers wanting it call `presentConsentIfRequired`.
+  private func autoPresentConsent(debug: Bool) {
+    onMain { [weak self] in
+      guard let host = self?.hostViewControllerProvider?() else {
+        if debug { NSLog("[EzoicReactNativeSdk] autoPresentConsent skipped: no foreground view controller") }
+        return
+      }
+      EzoicAds.shared.presentConsentIfRequired(from: host) { outcome in
+        if debug { NSLog("[EzoicReactNativeSdk] autoPresentConsent outcome: %@", String(describing: outcome)) }
+      }
+    }
+  }
 
   @objc public func presentConsentIfRequired(_ resolve: @escaping (Any?) -> Void) {
     presentConsent(resolve) { host, completion in

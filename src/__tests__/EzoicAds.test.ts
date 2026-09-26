@@ -48,6 +48,11 @@ beforeEach(() => {
 });
 
 describe('EzoicAds.initialize', () => {
+  it('forwards only the domain when no flags are set', async () => {
+    await EzoicAds.initialize({ domain: 'example.com' });
+    expect(initializeMock).toHaveBeenCalledWith({ domain: 'example.com' });
+  });
+
   it('forwards the 1.13 flags to native', async () => {
     await EzoicAds.initialize({
       domain: 'example.com',
@@ -73,6 +78,11 @@ describe('EzoicAds.trackPageview', () => {
   it('passes the screen label through', async () => {
     await EzoicAds.trackPageview('Home');
     expect(trackMock).toHaveBeenCalledWith('Home');
+  });
+
+  it('passes an empty label through (native treats it as unlabelled)', async () => {
+    await EzoicAds.trackPageview('');
+    expect(trackMock).toHaveBeenCalledWith('');
   });
 });
 
@@ -103,6 +113,15 @@ describe('EzoicAds.presentConsentIfRequired', () => {
       message: 'bridge down',
     });
   });
+
+  it('stringifies a non-Error bridge rejection', async () => {
+    presentMock.mockRejectedValue('bridge down');
+    await expect(EzoicAds.presentConsentIfRequired()).resolves.toEqual({
+      type: 'failed',
+      code: -1,
+      message: 'bridge down',
+    });
+  });
 });
 
 describe('EzoicAds.presentConsentSettings', () => {
@@ -118,6 +137,24 @@ describe('EzoicAds.presentConsentSettings', () => {
       message: 'No foreground Activity',
     });
     expect(settingsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves failed(-1) for an unrecognized native value', async () => {
+    settingsMock.mockResolvedValue(null);
+    await expect(EzoicAds.presentConsentSettings()).resolves.toEqual({
+      type: 'failed',
+      code: -1,
+      message: 'Unrecognized outcome',
+    });
+  });
+
+  it('resolves failed(-1) instead of rejecting if the bridge rejects', async () => {
+    settingsMock.mockRejectedValue(new Error('bridge down'));
+    await expect(EzoicAds.presentConsentSettings()).resolves.toEqual({
+      type: 'failed',
+      code: -1,
+      message: 'bridge down',
+    });
   });
 });
 

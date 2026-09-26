@@ -55,8 +55,14 @@ describe('parseConsentOutcome', () => {
     expect(parseConsentOutcome({ type: 'failed' })).toEqual({
       type: 'failed',
       code: -1,
-      message: 'Unknown error',
+      message: '',
     });
+  });
+
+  it('fills defaults for a failed outcome with non-number/non-string fields', () => {
+    expect(
+      parseConsentOutcome({ type: 'failed', code: '5001', message: 42 })
+    ).toEqual({ type: 'failed', code: -1, message: '' });
   });
 
   it.each([

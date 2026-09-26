@@ -181,19 +181,30 @@ in GDPR regions; elsewhere nothing is shown and ads load as before.
 
 > **If your app already runs another CMP (UMP, OneTrust, …) you _must_ set
 > `cmpEnabled: false`.** See [Using your own CMP](#using-your-own-cmp).
+>
+> **Upgrading from 1.11.x:** `cmpEnabled` and `autoPresentConsent` default to
+> `true`, so GDPR-region users now see the built-in dialog after `initialize`
+> and ad loads wait for their decision. If you pass consent yourself, move
+> `setGDPRConsent` **before** `initialize` (earlier versions of this README
+> showed it after) and set `cmpEnabled: false`; see
+> [Manual consent](#manual-consent).
 
 **The dialog is presented for you.** Once `initialize` resolves, the wrapper
 calls `presentConsentIfRequired()` once on your behalf (`autoPresentConsent:
 true`). Outside GDPR regions, with `cmpEnabled: false`, when another CMP is
-present, or when you called `setGDPRConsent` before `initialize`, the native SDK
-returns `notRequired` and nothing is shown.
+present, when you called `setGDPRConsent` before `initialize`, or with
+`autoReadConsent: false`, the native SDK returns `notRequired` and nothing is
+shown.
 
 In GDPR regions, ad loads wait while the consent dialog is loading or on screen
 (at most 5 minutes in total per dialog), and up to 10 seconds while no dialog is
 in progress, the dialog is covered, or the app is in the background, then fail
 with error code `5001` ([`EzoicErrorCode.consentRequired`](#error-code-5001)).
-If the dialog can't be shown at all (e.g. network error), ads proceed without a
-TC string (limited ads).
+If native can't show the dialog at all (e.g. network error), it returns
+`failed` with the native error code and ads proceed without a TC string
+(limited ads). A `failed` outcome with `code: -1` is different: the wrapper had
+no foreground screen to present from, native was never called, and ads stay
+gated (they wait up to 10 seconds, then fail with `5001`).
 
 To control the timing or read the outcome, turn auto-presentation off and call
 `presentConsentIfRequired()` yourself, e.g. from your first screen:
@@ -221,24 +232,26 @@ harmless: you get `alreadyPresenting` while a dialog is in flight and
 `alreadyDecided` once a valid decision is stored. Re-present whenever
 `isConsentRequired()` is `true` and no decision has been made (e.g. after
 `dismissed` or `failed`). Called before initialization finishes, it waits for
-the init response. On Android, if `initialize` resolves before any Activity is
-in the foreground (a very early cold start), the automatic presentation is
-skipped; call `presentConsentIfRequired()` from your first screen.
+the init response. If `initialize` resolves before any screen is showing (no
+foreground Activity on Android, no presented view controller on iOS, e.g. a very
+early cold start), the automatic presentation is skipped; call
+`presentConsentIfRequired()` from your first screen.
 
 The promise always resolves (never rejects) with an `EzoicConsentOutcome`:
 
 | `type` | When |
 |---|---|
-| `notRequired` | GDPR doesn't apply, the built-in CMP is disabled, another CMP owns consent, or consent is managed by the app (`setGDPRConsent`) |
+| `notRequired` | GDPR doesn't apply, the built-in CMP is disabled, another CMP owns consent, or consent is managed by the app (`setGDPRConsent`, or `autoReadConsent: false`) |
 | `alreadyDecided` | A still-valid decision is stored; no dialog shown |
 | `decided` | The user chose `decision` (`acceptAll`, `rejectAll` or `custom`); the choice is saved |
 | `dismissed` | The dialog closed without a choice; ads stay gated for this session |
 | `alreadyPresenting` | A consent dialog is already on screen or being prepared |
-| `failed` | The dialog couldn't be shown. `code`/`message` come from the native error; `code: -1` means there was no foreground Activity / view controller to present from |
+| `failed` | The dialog couldn't be shown. `code`/`message` come from the native error. `code: -1` with `message: 'No foreground Activity'` (on both platforms) is wrapper-side: there was no foreground Activity / view controller, native was not called and ads stay gated, so call `presentConsentIfRequired()` again once a screen is showing |
 
 - **`isConsentRequired()`** resolves `true` whenever GDPR applies and the
   built-in CMP is in charge (including after the user has decided), `false`
-  otherwise, and `null` until the init request completes.
+  otherwise, and `null` until the init request completes or when the server
+  sent no consent information.
 - **`resetConsent()`** deletes the stored decision so the dialog shows again
   (ads re-gate until the user decides).
 

@@ -88,7 +88,8 @@ export const EzoicAds = {
   },
   /**
    * `true` when GDPR applies and the built-in CMP handles consent, `false`
-   * otherwise, `null` until the init request completes.
+   * otherwise, `null` until the init request completes or when the server
+   * sent no consent information.
    */
   isConsentRequired(): Promise<boolean | null> {
     return NativeEzoicAds.isConsentRequired().then((v) => v ?? null);

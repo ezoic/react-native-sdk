@@ -5,7 +5,8 @@ export type EzoicConsentDecision = 'acceptAll' | 'rejectAll' | 'custom';
  * Result of `EzoicAds.presentConsentIfRequired` / `presentConsentSettings`.
  *
  * - `notRequired`: GDPR doesn't apply, the built-in CMP is disabled, another
- *   CMP owns consent, or consent is managed by the app (`setGDPRConsent`).
+ *   CMP owns consent, or consent is managed by the app (`setGDPRConsent`, or
+ *   `autoReadConsent: false`).
  * - `alreadyDecided`: a still-valid decision is stored; no dialog was shown.
  * - `decided`: the user made a choice, which has been saved.
  * - `dismissed`: the dialog closed without a choice; ads stay gated for this
@@ -13,8 +14,9 @@ export type EzoicConsentDecision = 'acceptAll' | 'rejectAll' | 'custom';
  * - `alreadyPresenting`: a consent dialog is already on screen or being
  *   prepared.
  * - `failed`: the dialog could not be shown. `code` is the native
- *   `EzoicError` code, or `-1` when the wrapper had no foreground
- *   Activity / view controller to present from.
+ *   `EzoicError` code, or `-1` (`'No foreground Activity'`) when the wrapper
+ *   had no foreground Activity / view controller: native was not called, ads
+ *   stay gated, and you should call again once a screen is showing.
  */
 export type EzoicConsentOutcome =
   | { type: 'notRequired' }

@@ -11,6 +11,10 @@ import EzoicAdsSDKBinary
   func bannerDidDismissScreen()
 }
 
+/// Hosts one native `EzoicBannerView` for the Fabric component view. The host
+/// loads exactly once: a prop change or a recycled component view gets a fresh
+/// host (see `EzoicBannerViewComponentView.mm`), the same lifecycle as
+/// `EzoicOutstreamAdHostView`.
 @objc public class EzoicBannerHostView: UIView, EzoicBannerViewDelegate {
 
   @objc public weak var hostDelegate: EzoicBannerHostViewDelegate?
@@ -20,15 +24,24 @@ import EzoicAdsSDKBinary
   private var banner: EzoicBannerView?
   private var adUnitId: Int = 0
   private var sizes: [String] = []
+  private var loadStarted = false
 
+  /// Stores the ad unit id and requested sizes. The load is NOT started here —
+  /// the Fabric component view calls `startLoad()` from `finalizeUpdates`, once
+  /// the event emitter is attached, so a synchronous failure (SDK not yet
+  /// initialized on a cold start) still reaches JS as `onError`.
   @objc public func configure(adUnitIdentifier: String, size: String) {
     self.adUnitId = Int(adUnitIdentifier) ?? 0
-    self.sizes = size.split(separator: ",").map { String($0) }
-    rebuildAndLoad()
+    self.sizes = size.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
   }
 
-  private func rebuildAndLoad() {
-    banner?.removeFromSuperview()
+  /// Builds the native banner, wires its delegate BEFORE `loadAd`, and loads
+  /// once. A second call is a no-op; the guard survives repeated
+  /// `finalizeUpdates` calls.
+  @objc public func startLoad() {
+    if loadStarted { return }
+    loadStarted = true
+
     let view = EzoicBannerView(adUnitIdentifier: adUnitId)
     view.collapseOnNoFill = collapseOnNoFill
     view.delegate = self
@@ -54,4 +67,10 @@ import EzoicAdsSDKBinary
   public func bannerViewDidRecordClick(_ bannerView: EzoicBannerView) { hostDelegate?.bannerDidRecordClick() }
   public func bannerViewWillPresentScreen(_ bannerView: EzoicBannerView) { hostDelegate?.bannerWillPresentScreen() }
   public func bannerViewDidDismissScreen(_ bannerView: EzoicBannerView) { hostDelegate?.bannerDidDismissScreen() }
+
+  deinit {
+    // The native view also destroys itself on removeFromSuperview, but call it
+    // explicitly for a deterministic teardown. Safe to call multiple times.
+    banner?.destroy()
+  }
 }

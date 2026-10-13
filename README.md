@@ -76,6 +76,12 @@ string or comma-separated list (e.g. `"300x250"`, `"300x250,320x50"`).
 fails and nothing is displayed. `onSizeChange` receives `{ width, height }` in
 dp/pt after a fill, or `{ width: 0, height: 0 }` on collapse.
 
+The banner loads once the component mounts with all its props applied. Changing
+`adUnitIdentifier` or `size` after that destroys the current banner and loads a
+new one for the new values; `collapseOnNoFill` applies to the next load outcome
+without a reload. Keep the `size` string stable across renders (the component
+normalizes whitespace) so re-renders don't trigger reloads.
+
 ### Native ads
 
 `EzoicNativeAdView` loads a native ad and renders it in an SDK-built template

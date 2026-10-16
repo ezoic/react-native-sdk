@@ -4,6 +4,7 @@ import {
   normalizeSize,
   coerceAdUnitId,
   mapRewardResult,
+  normalizeRefreshOverride,
 } from '../helpers';
 
 describe('normalizeConfig', () => {
@@ -77,5 +78,19 @@ describe('mapRewardResult', () => {
   it('returns null for missing result', () => {
     expect(mapRewardResult(null)).toBeNull();
     expect(mapRewardResult(undefined)).toBeNull();
+  });
+});
+
+describe('normalizeRefreshOverride', () => {
+  it('maps invalid input to the unset sentinel instead of a real setting', () => {
+    expect(normalizeRefreshOverride(undefined)).toBe(-1);
+    expect(normalizeRefreshOverride(null)).toBe(-1);
+    expect(normalizeRefreshOverride(-5)).toBe(-1);
+    expect(normalizeRefreshOverride(Number.NaN)).toBe(-1);
+    expect(normalizeRefreshOverride(Number.POSITIVE_INFINITY)).toBe(-1);
+  });
+  it('truncates fractions to whole numbers', () => {
+    expect(normalizeRefreshOverride(30.9)).toBe(30);
+    expect(normalizeRefreshOverride(0.5)).toBe(0);
   });
 });

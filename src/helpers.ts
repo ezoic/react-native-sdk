@@ -30,6 +30,23 @@ export function normalizeSize(size: string | undefined): string {
     .join(',');
 }
 
+/** Native-prop value meaning "no app override; follow the Ezoic server". */
+export const REFRESH_UNSET = -1;
+
+/**
+ * Maps an optional refresh override to the native prop: a whole number of 0 or
+ * more passes through (fractions are truncated), anything else (absent, null,
+ * negative, NaN, Infinity) becomes {@link REFRESH_UNSET}.
+ */
+export function normalizeRefreshOverride(
+  value: number | null | undefined
+): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return REFRESH_UNSET;
+  }
+  return Math.min(Math.trunc(value), 2147483647);
+}
+
 export function coerceAdUnitId(adUnitIdentifier: string | number): string {
   return String(adUnitIdentifier);
 }

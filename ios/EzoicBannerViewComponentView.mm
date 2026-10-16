@@ -53,6 +53,8 @@ using namespace facebook::react;
     [_host configureWithAdUnitIdentifier:adUnit size:size];
   }
   _host.collapseOnNoFill = newProps.collapseOnNoFill;
+  _host.refreshIntervalSeconds = newProps.refreshIntervalSeconds;
+  _host.refreshMaxCount = newProps.refreshMaxCount;
   [super updateProps:props oldProps:oldProps];
 }
 

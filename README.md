@@ -11,7 +11,7 @@ for iOS (`EzoicAdsSDK`, via CocoaPods) and Android
 ## Requirements
 
 - React Native 0.76+ with the New Architecture enabled.
-- iOS 15.0+ and Xcode 26.2+ (required by the native `EzoicAdsSDK` 1.15), Android `minSdk` 24+ and Kotlin 2.1+.
+- iOS 15.0+ and Xcode 26.2+ (required by the native `EzoicAdsSDK` 1.16), Android `minSdk` 24+ and Kotlin 2.1+.
 
 ## Installation
 
@@ -81,6 +81,17 @@ The banner loads once the component mounts with all its props applied. Changing
 new one for the new values; `collapseOnNoFill` applies to the next load outcome
 without a reload. Keep the `size` string stable across renders (the component
 normalizes whitespace) so re-renders don't trigger reloads.
+
+Banner refresh is off unless Ezoic's server enables it for the placement. To
+control it from the app, pass `refreshIntervalSeconds` (0 = off, minimum 30)
+and/or `refreshMaxCount` (refreshes per load, 0 = no limit, maximum 100); leave
+them out to follow the server. Both are read when the banner loads, so set them
+on first render. The countdown only runs while at least half of the banner is
+on screen and the app is in the foreground.
+
+```tsx
+<EzoicBannerView adUnitIdentifier="123456" refreshIntervalSeconds={60} refreshMaxCount={10} />
+```
 
 ### Native ads
 
@@ -403,7 +414,7 @@ an unlabelled pageview.
 - `EzoicAds.isConsentRequired()` → `Promise<boolean | null>`
 - `EzoicAds.resetConsent()` → `void`
 - `EzoicErrorCode.consentRequired` = `5001`
-- `<EzoicBannerView adUnitIdentifier size collapseOnNoFill onSizeChange onLoad onError onImpression onClick onOpen onClose />`
+- `<EzoicBannerView adUnitIdentifier size collapseOnNoFill refreshIntervalSeconds refreshMaxCount onSizeChange onLoad onError onImpression onClick onOpen onClose />`
 - `<EzoicNativeAdView adUnitIdentifier onLoad onError onImpression onClick onOpen onClose />`
 - `<EzoicOutstreamAdView adUnitIdentifier collapseOnNoFill onSizeChange onLoad onError onImpression onClick onOpen onClose />`
 - `new EzoicInstreamAd(adUnitIdentifier)`

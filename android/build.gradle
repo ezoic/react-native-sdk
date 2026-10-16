@@ -1,6 +1,6 @@
 buildscript {
   ext.EzoicReactNativeSdk = [
-    kotlinVersion: "2.0.21",
+    kotlinVersion: "2.1.21",
     minSdkVersion: 24,
     compileSdkVersion: 36,
     targetSdkVersion: 36
@@ -68,11 +68,11 @@ dependencies {
   // Native Ezoic Ads SDK (resolved from Maven Central). Brings in Google Mobile
   // Ads + Prebid transitively. Requires mavenCentral() + google() in the
   // consuming app's repositories (the RN template provides both).
-  implementation "com.ezoic.sdk:ezoic-ads-sdk:1.13.2"
+  implementation "com.ezoic.sdk:ezoic-ads-sdk:1.15.0"
 
   // The native-ad wrapper references GMA's NativeAdView/MediaView/NativeAd
   // types at compile time. The Ezoic SDK POM scopes Google Mobile Ads at
   // runtime only, so pin the compile-time classpath here (runtime resolution
   // still comes transitively from the Ezoic SDK).
-  compileOnly "com.google.android.gms:play-services-ads:22.6.0"
+  compileOnly "com.google.android.gms:play-services-ads:25.2.0"
 }

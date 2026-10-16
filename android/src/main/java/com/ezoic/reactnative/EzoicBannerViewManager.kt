@@ -74,6 +74,21 @@ class EzoicBannerViewManager(private val ctx: ReactApplicationContext) :
     view.banner?.collapseOnNoFill = value
   }
 
+  // Refresh overrides: -1 (the codegen default) means "not set", which the
+  // native banner reads as null = follow the server. Read at loadAd(), so a
+  // change after the banner loaded takes effect on its next load.
+  @ReactProp(name = "refreshIntervalSeconds", defaultInt = REFRESH_UNSET)
+  fun setRefreshIntervalSeconds(view: BannerContainer, value: Int) {
+    view.refreshIntervalSeconds = refreshOverride(value)
+    view.banner?.refreshIntervalSeconds = view.refreshIntervalSeconds
+  }
+
+  @ReactProp(name = "refreshMaxCount", defaultInt = REFRESH_UNSET)
+  fun setRefreshMaxCount(view: BannerContainer, value: Int) {
+    view.refreshMaxCount = refreshOverride(value)
+    view.banner?.refreshMaxCount = view.refreshMaxCount
+  }
+
   // Fabric sets every prop for the mount transaction before this runs, so the
   // ad unit id and size are final here. `view.post` escapes the mount
   // transaction so the synchronous native-SDK failure path (uninitialized)
@@ -99,6 +114,8 @@ class EzoicBannerViewManager(private val ctx: ReactApplicationContext) :
     view.loadStarted = true
     val banner = EzoicBannerView(view.context, view.adUnitId)
     banner.collapseOnNoFill = view.collapseOnNoFill
+    banner.refreshIntervalSeconds = view.refreshIntervalSeconds
+    banner.refreshMaxCount = view.refreshMaxCount
     // Callbacks are guarded by banner identity: a banner replaced by a prop
     // change (resetForReload) must not emit for the container's new banner.
     banner.listener = object : EzoicBannerViewListener {
@@ -192,6 +209,8 @@ class EzoicBannerViewManager(private val ctx: ReactApplicationContext) :
     var loadStarted: Boolean = false
     var disposed: Boolean = false
     var collapseOnNoFill: Boolean = true
+    var refreshIntervalSeconds: Int? = null
+    var refreshMaxCount: Int? = null
     var banner: EzoicBannerView? = null
 
     private val measureAndLayout = Runnable {
@@ -210,5 +229,8 @@ class EzoicBannerViewManager(private val ctx: ReactApplicationContext) :
 
   companion object {
     const val NAME = "EzoicBannerView"
+    const val REFRESH_UNSET = -1
+
+    fun refreshOverride(value: Int): Int? = if (value < 0) null else value
   }
 }

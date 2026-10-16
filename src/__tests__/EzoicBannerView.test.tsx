@@ -63,6 +63,42 @@ describe('EzoicBannerView defaults', () => {
   });
 });
 
+describe('EzoicBannerView refresh overrides', () => {
+  it('sends the unset sentinel when the props are omitted (server decides)', () => {
+    const el = EzoicBannerView({ adUnitIdentifier: '1' });
+    expect(el.props.refreshIntervalSeconds).toBe(-1);
+    expect(el.props.refreshMaxCount).toBe(-1);
+  });
+
+  it('treats null as unset', () => {
+    const el = EzoicBannerView({
+      adUnitIdentifier: '1',
+      refreshIntervalSeconds: null,
+      refreshMaxCount: null,
+    });
+    expect(el.props.refreshIntervalSeconds).toBe(-1);
+    expect(el.props.refreshMaxCount).toBe(-1);
+  });
+
+  it('forwards explicit values, including 0 (off / no limit)', () => {
+    const el = EzoicBannerView({
+      adUnitIdentifier: '1',
+      refreshIntervalSeconds: 0,
+      refreshMaxCount: 0,
+    });
+    expect(el.props.refreshIntervalSeconds).toBe(0);
+    expect(el.props.refreshMaxCount).toBe(0);
+
+    const el2 = EzoicBannerView({
+      adUnitIdentifier: '1',
+      refreshIntervalSeconds: 45,
+      refreshMaxCount: 5,
+    });
+    expect(el2.props.refreshIntervalSeconds).toBe(45);
+    expect(el2.props.refreshMaxCount).toBe(5);
+  });
+});
+
 describe('EzoicBannerView onSizeChange', () => {
   it('unwraps nativeEvent and forwards the payload', () => {
     const onSizeChange = jest.fn();

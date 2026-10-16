@@ -13,6 +13,10 @@ export interface NativeProps extends ViewProps {
   size?: string;
   // Collapse the native view when a load fails and no ad is displayed.
   collapseOnNoFill?: CodegenTypes.WithDefault<boolean, true>;
+  // Banner refresh override. Codegen has no nullable integers, so -1 means
+  // "not set" (follow the Ezoic server); 0 and up go to the native banner.
+  refreshIntervalSeconds?: CodegenTypes.WithDefault<CodegenTypes.Int32, -1>;
+  refreshMaxCount?: CodegenTypes.WithDefault<CodegenTypes.Int32, -1>;
   onLoad?: CodegenTypes.BubblingEventHandler<LoadEvent> | null;
   onError?: CodegenTypes.BubblingEventHandler<ErrorEvent> | null;
   // Displayed ad size changed (dp/pt): the creative size after a successful

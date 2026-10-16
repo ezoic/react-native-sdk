@@ -118,7 +118,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
    * only logged; publishers wanting it call `presentConsentIfRequired`.
    */
   private fun presentConsentAfterInit(debug: Boolean) {
-    val activity = currentActivity
+    val activity = reactApplicationContext.currentActivity
     if (activity == null) {
       if (debug) Log.d(NAME, "autoPresentConsent skipped: no foreground Activity")
       return
@@ -178,7 +178,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     promise: Promise,
     present: (Activity, (ConsentOutcome) -> Unit) -> Unit
   ) {
-    val activity = currentActivity
+    val activity = reactApplicationContext.currentActivity
     if (activity == null) {
       promise.resolve(consentFailureMap(NO_ACTIVITY_CODE, NO_ACTIVITY_MESSAGE))
       return
@@ -225,7 +225,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       promise.reject("EzoicAds", "A show is already in progress for ad unit $adUnitIdentifier")
       return
     }
-    val activity = currentActivity
+    val activity = reactApplicationContext.currentActivity
     if (activity == null) {
       promise.reject("EzoicAds", "No current Activity to present the rewarded ad")
       return
@@ -303,7 +303,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       promise.reject("EzoicAds", "A show is already in progress for ad unit $adUnitIdentifier")
       return
     }
-    val activity = currentActivity
+    val activity = reactApplicationContext.currentActivity
     if (activity == null) {
       promise.reject("EzoicAds", "No current Activity to present the interstitial ad")
       return

@@ -49,6 +49,7 @@ import GoogleMobileAds
         // as soon as the NativeAdView is displayed, is delivered.
         ad.delegate = self
         self.render(gmaAd)
+        if let adView = self.adView { ad.registerView(adView) }
         self.hostDelegate?.nativeAdDidLoad()
       case .failure(let error):
         self.hostDelegate?.nativeAdDidFail(error.localizedDescription, code: error.code)

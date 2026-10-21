@@ -112,6 +112,7 @@ class EzoicNativeAdViewManager(private val ctx: ReactApplicationContext) :
         val adView = buildTemplate(view.context, gmaAd)
         view.removeAllViews()
         view.addView(adView)
+        nativeAd.registerView(adView)
         emit(view, "topLoad", Arguments.createMap())
       }
 

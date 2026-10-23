@@ -1,6 +1,5 @@
 import UIKit
 import EzoicAdsSDKBinary
-import GoogleMobileAds
 
 @objc public protocol EzoicNativeAdHostViewDelegate: AnyObject {
   func nativeAdDidLoad()
@@ -17,7 +16,8 @@ import GoogleMobileAds
 
   private var adUnitId: Int = 0
   private var ezoicNativeAd: EzoicNativeAd?
-  private var adView: NativeAdView?
+  private var templateView: EzoicNativeAdTemplateView?
+  private var adStyle = EzoicNativeAdStyle()
   private var loadStarted = false
 
   /// Stores the ad unit id. The load is NOT started here — the Fabric
@@ -26,6 +26,15 @@ import GoogleMobileAds
   /// can deliver `onError` instead of being dropped.
   @objc public func configure(adUnitIdentifier: String) {
     self.adUnitId = Int(adUnitIdentifier) ?? 0
+  }
+
+  /// Sets the template style from the JS `adStyle` prop (JSON, colors as ARGB
+  /// numbers). Re-renders an ad that is already showing.
+  @objc public func setAdStyleJson(_ json: String) {
+    let data = Data(json.utf8)
+    let map = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    adStyle = EzoicNativeAdStyle(dictionary: map)
+    templateView?.style = adStyle
   }
 
   /// Starts the native-ad load once. A second call is a no-op; the guard
@@ -37,7 +46,7 @@ import GoogleMobileAds
       guard let self = self else { return }
       switch result {
       case .success(let ad):
-        guard let gmaAd = ad.nativeAd else {
+        guard ad.nativeAd != nil else {
           // Empty-content ad: destroy it and do not retain it instead of
           // keeping an unrenderable, errored ad alive.
           ad.destroy()
@@ -48,8 +57,7 @@ import GoogleMobileAds
         // Attach the delegate before rendering so the impression, which fires
         // as soon as the NativeAdView is displayed, is delivered.
         ad.delegate = self
-        self.render(gmaAd)
-        if let adView = self.adView { ad.registerView(adView) }
+        self.render(ad)
         self.hostDelegate?.nativeAdDidLoad()
       case .failure(let error):
         self.hostDelegate?.nativeAdDidFail(error.localizedDescription, code: error.code)
@@ -57,109 +65,21 @@ import GoogleMobileAds
     }
   }
 
-  /// Builds a template `NativeAdView` in code (mirrors the Android template):
-  /// a header row (icon + headline/advertiser), a `MediaView`, the body text
-  /// and a call-to-action button. Optional text/image assets are created and
-  /// registered only when present, but the `MediaView` is always built: on
-  /// GMA 12 `NativeAd.mediaContent` is non-optional and the media view is a
-  /// required asset. `adView.nativeAd` is assigned last.
-  private func render(_ gmaAd: GoogleMobileAds.NativeAd) {
-    let adView = NativeAdView()
-    adView.translatesAutoresizingMaskIntoConstraints = false
-
-    let mainStack = UIStackView()
-    mainStack.axis = .vertical
-    mainStack.spacing = 8
-    mainStack.translatesAutoresizingMaskIntoConstraints = false
-
-    let headerRow = UIStackView()
-    headerRow.axis = .horizontal
-    headerRow.spacing = 8
-    headerRow.alignment = .center
-
-    if let image = gmaAd.icon?.image {
-      let iconView = UIImageView(image: image)
-      iconView.translatesAutoresizingMaskIntoConstraints = false
-      NSLayoutConstraint.activate([
-        iconView.widthAnchor.constraint(equalToConstant: 40),
-        iconView.heightAnchor.constraint(equalToConstant: 40),
-      ])
-      headerRow.addArrangedSubview(iconView)
-      adView.iconView = iconView
-    }
-
-    let textColumn = UIStackView()
-    textColumn.axis = .vertical
-
-    if let headline = gmaAd.headline {
-      let label = UILabel()
-      label.text = headline
-      label.font = .boldSystemFont(ofSize: 16)
-      label.numberOfLines = 0
-      textColumn.addArrangedSubview(label)
-      adView.headlineView = label
-    }
-
-    if let advertiser = gmaAd.advertiser {
-      let label = UILabel()
-      label.text = advertiser
-      label.font = .systemFont(ofSize: 12)
-      textColumn.addArrangedSubview(label)
-      adView.advertiserView = label
-    }
-
-    headerRow.addArrangedSubview(textColumn)
-    mainStack.addArrangedSubview(headerRow)
-
-    let mediaView = MediaView()
-    mediaView.mediaContent = gmaAd.mediaContent
-    mediaView.translatesAutoresizingMaskIntoConstraints = false
-    // Priority 999 so a caller-supplied style shorter than the template's
-    // natural height breaks this constraint instead of spamming
-    // unsatisfiable-constraint logs.
-    let mediaHeight = mediaView.heightAnchor.constraint(equalToConstant: 175)
-    mediaHeight.priority = UILayoutPriority(999)
-    mediaHeight.isActive = true
-    mainStack.addArrangedSubview(mediaView)
-    adView.mediaView = mediaView
-
-    if let body = gmaAd.body {
-      let label = UILabel()
-      label.text = body
-      label.font = .systemFont(ofSize: 14)
-      label.numberOfLines = 0
-      mainStack.addArrangedSubview(label)
-      adView.bodyView = label
-    }
-
-    if let cta = gmaAd.callToAction {
-      let button = UIButton(type: .system)
-      button.setTitle(cta, for: .normal)
-      // The NativeAdView handles the tap; the button must not intercept it.
-      button.isUserInteractionEnabled = false
-      mainStack.addArrangedSubview(button)
-      adView.callToActionView = button
-    }
-
-    adView.addSubview(mainStack)
+  /// Shows the ad in the SDK template, which also registers it for viewability.
+  private func render(_ ad: EzoicNativeAd) {
+    templateView?.removeFromSuperview()
+    let view = EzoicNativeAdTemplateView()
+    view.translatesAutoresizingMaskIntoConstraints = false
+    view.style = adStyle
+    addSubview(view)
     NSLayoutConstraint.activate([
-      mainStack.topAnchor.constraint(equalTo: adView.topAnchor, constant: 8),
-      mainStack.leadingAnchor.constraint(equalTo: adView.leadingAnchor, constant: 8),
-      mainStack.trailingAnchor.constraint(equalTo: adView.trailingAnchor, constant: -8),
-      mainStack.bottomAnchor.constraint(equalTo: adView.bottomAnchor, constant: -8),
+      view.topAnchor.constraint(equalTo: topAnchor),
+      view.leadingAnchor.constraint(equalTo: leadingAnchor),
+      view.trailingAnchor.constraint(equalTo: trailingAnchor),
+      view.bottomAnchor.constraint(equalTo: bottomAnchor),
     ])
-
-    self.adView?.removeFromSuperview()
-    addSubview(adView)
-    NSLayoutConstraint.activate([
-      adView.topAnchor.constraint(equalTo: topAnchor),
-      adView.leadingAnchor.constraint(equalTo: leadingAnchor),
-      adView.trailingAnchor.constraint(equalTo: trailingAnchor),
-      adView.bottomAnchor.constraint(equalTo: bottomAnchor),
-    ])
-
-    adView.nativeAd = gmaAd
-    self.adView = adView
+    view.nativeAd = ad
+    templateView = view
   }
 
   // MARK: - EzoicNativeAdDelegate

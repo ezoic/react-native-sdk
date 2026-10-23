@@ -11,7 +11,7 @@ for iOS (`EzoicAdsSDK`, via CocoaPods) and Android
 ## Requirements
 
 - React Native 0.76+ with the New Architecture enabled.
-- iOS 15.0+ and Xcode 26.2+ (required by the native `EzoicAdsSDK` 1.17), Android `minSdk` 24+ and Kotlin 2.1+.
+- iOS 15.0+ and Xcode 26.2+ (required by the native `EzoicAdsSDK` 1.18), Android `minSdk` 24+ and Kotlin 2.1+.
 
 ## Installation
 
@@ -114,6 +114,48 @@ import { EzoicAds, EzoicNativeAdView } from '@ezoic/react-native-sdk';
   onClose={() => console.log('close')}
 />;
 ```
+
+#### Styling native ads
+
+Pass `adStyle` to restyle the template to match your app. Every key is
+optional; leave one out to keep the default (colors left out follow the system
+light/dark theme). Colors accept any React Native color string (`'#1E1E2E'`,
+`'white'`, `'rgba(0,0,0,0.5)'`); `PlatformColor` values are ignored. Sizes are in
+dp/pt. Changing `adStyle` re-renders the ad in place without reloading it.
+
+```tsx
+<EzoicNativeAdView
+  adUnitIdentifier="123456"
+  style={{ width: '100%', height: 360 }}
+  adStyle={{
+    backgroundColor: '#1E1E2E',
+    cornerRadius: 16,
+    headlineTextColor: '#FFFFFF',
+    bodyTextColor: '#CDD6F4',
+    callToActionBackgroundColor: '#89B4FA',
+    callToActionTextColor: '#1E1E2E',
+    callToActionCornerRadius: 22,
+    adLabelText: 'Sponsored',
+  }}
+/>
+```
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `backgroundColor` | transparent | Card background |
+| `cornerRadius` | `0` | Card corners; content is clipped to them |
+| `padding` | `8` | Inner padding |
+| `headlineTextColor` / `headlineTextSize` | theme / `16` | Headline is bold |
+| `advertiserTextColor` / `advertiserTextSize` | theme / `12` | |
+| `bodyTextColor` / `bodyTextSize` | theme / `14` | |
+| `callToActionBackgroundColor` / `callToActionTextColor` | platform button | |
+| `callToActionTextSize` / `callToActionCornerRadius` | `14` / `4` | Radius applies when a background color is set |
+| `mediaHeight` | `175` | Minimum `120`, as Google requires for native media |
+| `adLabelText` | `"Ad"` | The ad attribution badge; cannot be blank |
+| `adLabelTextColor` / `adLabelBackgroundColor` | `#202124` / `#FBBC04` | |
+
+Give the view enough height for the template; with the defaults about 330
+plus any extra padding or larger text.
 
 ### Outstream video
 

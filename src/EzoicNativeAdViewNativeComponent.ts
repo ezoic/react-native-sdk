@@ -6,6 +6,8 @@ type ErrorEvent = Readonly<{ message: string; code: CodegenTypes.Int32 }>;
 
 export interface NativeProps extends ViewProps {
   adUnitIdentifier: string;
+  // EzoicNativeAdStyle as JSON (colors as ARGB numbers); '' for the defaults.
+  adStyleJson?: string;
   onLoad?: CodegenTypes.BubblingEventHandler<LoadEvent> | null;
   onError?: CodegenTypes.BubblingEventHandler<ErrorEvent> | null;
   onImpression?: CodegenTypes.BubblingEventHandler<LoadEvent> | null;

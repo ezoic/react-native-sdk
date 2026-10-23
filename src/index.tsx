@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { processColor } from 'react-native';
 import type { NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
 import NativeEzoicAds, { type EzoicConfig } from './NativeEzoicAds';
 import EzoicBannerNative from './EzoicBannerViewNativeComponent';
@@ -15,8 +16,13 @@ import {
   parseConsentOutcome,
   type EzoicConsentOutcome,
 } from './EzoicConsent';
+import {
+  serializeNativeAdStyle,
+  type EzoicNativeAdStyle,
+} from './EzoicNativeAdStyle';
 
 export type { EzoicConfig };
+export type { EzoicNativeAdStyle };
 export type { EzoicConsentDecision, EzoicConsentOutcome } from './EzoicConsent';
 export {
   EzoicRewardedAd,
@@ -222,6 +228,8 @@ export interface EzoicNativeAdError {
 export interface EzoicNativeAdViewProps {
   adUnitIdentifier: string | number;
   style?: StyleProp<ViewStyle>;
+  /** Colors, text sizes, corner radius and more for the ad template. */
+  adStyle?: EzoicNativeAdStyle;
   onLoad?: () => void;
   onError?: (error: EzoicNativeAdError) => void;
   onImpression?: () => void;
@@ -231,13 +239,15 @@ export interface EzoicNativeAdViewProps {
 }
 
 /**
- * Renders a native ad in an SDK-built template `NativeAdView`. The component
+ * Renders a native ad in the native SDK's template (an "Ad" label, icon,
+ * headline, advertiser, media, body and call-to-action button). The component
  * fills the bounds it is given by its RN style, so size it with `style` (e.g.
- * `{ width: '100%', height: 300 }`); the template lays out its assets inside.
+ * `{ width: '100%', height: 300 }`); style the template itself with `adStyle`.
  */
 export function EzoicNativeAdView(props: EzoicNativeAdViewProps) {
   const {
     adUnitIdentifier,
+    adStyle,
     onLoad,
     onError,
     onImpression,
@@ -250,6 +260,7 @@ export function EzoicNativeAdView(props: EzoicNativeAdViewProps) {
     <EzoicNativeAdNative
       {...rest}
       adUnitIdentifier={coerceAdUnitId(adUnitIdentifier)}
+      adStyleJson={serializeNativeAdStyle(adStyle, processColor)}
       onLoad={onLoad ? () => onLoad() : undefined}
       onError={onError ? (e) => onError(e.nativeEvent) : undefined}
       onImpression={onImpression ? () => onImpression() : undefined}

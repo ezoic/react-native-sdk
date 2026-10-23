@@ -13,6 +13,7 @@ using namespace facebook::react;
 @implementation EzoicNativeAdView {
   EzoicNativeAdHostView *_host;
   NSString *_lastAdUnit;
+  NSString *_lastStyleJson;
   BOOL _loadStarted;
 }
 
@@ -42,9 +43,15 @@ using namespace facebook::react;
       _host.hostDelegate = self;
       self.contentView = _host;
       _loadStarted = NO;
+      if (_lastStyleJson) [_host setAdStyleJson:_lastStyleJson];
     }
     _lastAdUnit = adUnit;
     [_host configureWithAdUnitIdentifier:adUnit];
+  }
+  NSString *styleJson = [NSString stringWithUTF8String:newProps.adStyleJson.c_str()];
+  if (![styleJson isEqualToString:_lastStyleJson]) {
+    _lastStyleJson = styleJson;
+    [_host setAdStyleJson:styleJson];
   }
   [super updateProps:props oldProps:oldProps];
 }
@@ -90,6 +97,7 @@ using namespace facebook::react;
   _host.hostDelegate = self;
   self.contentView = _host;
   _lastAdUnit = nil;
+  _lastStyleJson = nil;
   _loadStarted = NO;
   [super prepareForRecycle];
 }

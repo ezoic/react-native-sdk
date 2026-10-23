@@ -111,7 +111,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         result.onSuccess {
           promise.resolve(null)
           if (autoPresentConsent) presentConsentAfterInit(configuration.debugEnabled)
-        }.onFailure { e -> promise.reject("EzoicAds", e.message, e) }
+        }.onFailure { e -> promise.rejectWithCode(e, "Initialization failed") }
       }
     }
   }
@@ -210,7 +210,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         rewardedAds[id] = ad
         promise.resolve(null)
       }.onFailure { e ->
-        promise.rejectLoad(e, "Rewarded ad failed to load")
+        promise.rejectWithCode(e, "Rewarded ad failed to load")
       }
     }
   }
@@ -292,7 +292,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         interstitialAds[id] = ad
         promise.resolve(null)
       }.onFailure { e ->
-        promise.rejectLoad(e, "Interstitial ad failed to load")
+        promise.rejectWithCode(e, "Interstitial ad failed to load")
       }
     }
   }
@@ -381,7 +381,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       override fun onAdFailedToLoad(error: EzoicError) {
         if (holder.settled.compareAndSet(false, true)) {
           loadingInstream.remove(id)
-          promise.rejectLoad(error, "Instream ad failed to load")
+          promise.rejectWithCode(error, "Instream ad failed to load")
         }
       }
     })
@@ -552,10 +552,10 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
   }
 
   /**
-   * Rejects a load with the string code "EzoicAds" and, for native errors, the
+   * Rejects with the string code "EzoicAds" and, for native errors, the
    * numeric `EzoicError.code` in `userInfo` (JS: `error.userInfo.code`).
    */
-  private fun Promise.rejectLoad(e: Throwable, fallbackMessage: String) {
+  private fun Promise.rejectWithCode(e: Throwable, fallbackMessage: String) {
     val userInfo = (e as? EzoicError)?.let { error ->
       Arguments.createMap().apply { putInt("code", error.code) }
     }

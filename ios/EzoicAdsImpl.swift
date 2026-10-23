@@ -108,7 +108,7 @@ import EzoicAdsSDKBinary
             self?.presentConsentAfterInit(debug: configuration.debugEnabled)
           }
         case .failure(let error):
-          reject("EzoicAds", error.localizedDescription, error as NSError)
+          reject("EzoicAds", error.localizedDescription, Self.loadError(error))
         }
       }
     }
@@ -144,7 +144,7 @@ import EzoicAdsSDKBinary
   }
 
   /// `error` as an `NSError` whose `userInfo` also carries the numeric
-  /// `EzoicError.code`, which JS reads as `error.userInfo.code` on a rejected load.
+  /// `EzoicError.code`, which JS reads as `error.userInfo.code` on a rejection.
   private static func loadError(_ error: EzoicError) -> NSError {
     let bridged = error as NSError
     var userInfo = bridged.userInfo

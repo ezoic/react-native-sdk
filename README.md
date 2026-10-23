@@ -446,7 +446,7 @@ an unlabelled pageview.
 
 ## API
 
-- `EzoicAds.initialize(config)` → `Promise<void>` (see [Configuration](#configuration))
+- `EzoicAds.initialize(config)` → `Promise<void>` (see [Configuration](#configuration)). Safe to call again, including after a JS reload (Metro, CodePush, Expo) while the native SDK is still initialized: repeat calls share the first call's result, and a failed call is retried by the next one.
 - `EzoicAds.setGDPRConsent(applies, consentString?)` → `void` (call before `initialize`)
 - `EzoicAds.setGPPConsent(gppString?, sectionIds?)` → `void`
 - `EzoicAds.setSubjectToCOPPA(value)` → `void`

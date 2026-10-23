@@ -30,7 +30,6 @@ jest.mock('../NativeEzoicAds', () => ({
 import NativeEzoicAds from '../NativeEzoicAds';
 import { EzoicAds, EzoicErrorCode } from '../index';
 
-const initializeMock = NativeEzoicAds.initialize as jest.Mock;
 const trackMock = NativeEzoicAds.trackPageview as jest.Mock;
 const presentMock = NativeEzoicAds.presentConsentIfRequired as jest.Mock<
   () => Promise<unknown>
@@ -47,25 +46,119 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
+// `initialize` memoizes per JS context, so each test loads a fresh copy of the
+// module (and its mocked TurboModule) the way a JS reload would.
+function freshModule() {
+  let mod!: {
+    EzoicAds: typeof EzoicAds;
+    initialize: jest.Mock<(config: unknown) => Promise<void>>;
+    presentConsent: jest.Mock<() => Promise<unknown>>;
+  };
+  jest.isolateModules(() => {
+    const native = require('../NativeEzoicAds').default;
+    mod = {
+      EzoicAds: require('../index').EzoicAds,
+      initialize: native.initialize,
+      presentConsent: native.presentConsentIfRequired,
+    };
+  });
+  mod.presentConsent.mockImplementation(() =>
+    Promise.resolve({ type: 'notRequired' })
+  );
+  return mod;
+}
+
+const alreadyInitialized = () =>
+  Object.assign(new Error('Ezoic SDK is already initialized.'), {
+    code: 'EzoicAds',
+    userInfo: { code: 1002 },
+  });
+
 describe('EzoicAds.initialize', () => {
   it('forwards only the domain when no flags are set', async () => {
-    await EzoicAds.initialize({ domain: 'example.com' });
-    expect(initializeMock).toHaveBeenCalledWith({ domain: 'example.com' });
+    const m = freshModule();
+    await m.EzoicAds.initialize({ domain: 'example.com' });
+    expect(m.initialize).toHaveBeenCalledWith({ domain: 'example.com' });
   });
 
   it('forwards the 1.13 flags to native', async () => {
-    await EzoicAds.initialize({
+    const m = freshModule();
+    await m.EzoicAds.initialize({
       domain: 'example.com',
       autoTrackPageviews: false,
       cmpEnabled: false,
       autoPresentConsent: false,
     });
-    expect(initializeMock).toHaveBeenCalledWith({
+    expect(m.initialize).toHaveBeenCalledWith({
       domain: 'example.com',
       autoTrackPageviews: false,
       cmpEnabled: false,
       autoPresentConsent: false,
     });
+  });
+
+  it('throws synchronously without a domain', () => {
+    const m = freshModule();
+    expect(() => m.EzoicAds.initialize({ domain: '' })).toThrow('domain');
+    expect(m.initialize).not.toHaveBeenCalled();
+  });
+
+  it('resolves when native is already initialized (JS reload)', async () => {
+    const m = freshModule();
+    m.initialize.mockImplementationOnce(() =>
+      Promise.reject(alreadyInitialized())
+    );
+    await expect(
+      m.EzoicAds.initialize({ domain: 'example.com' })
+    ).resolves.toBeUndefined();
+    expect(m.presentConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips the consent prompt on re-init when autoPresentConsent is false', async () => {
+    const m = freshModule();
+    m.initialize.mockImplementationOnce(() =>
+      Promise.reject(alreadyInitialized())
+    );
+    await m.EzoicAds.initialize({
+      domain: 'example.com',
+      autoPresentConsent: false,
+    });
+    expect(m.presentConsent).not.toHaveBeenCalled();
+  });
+
+  it('shares one native call between concurrent and later calls', async () => {
+    const m = freshModule();
+    let finish: () => void = () => {};
+    m.initialize.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const first = m.EzoicAds.initialize({ domain: 'example.com' });
+    const second = m.EzoicAds.initialize({ domain: 'example.com' });
+    expect(second).toBe(first);
+    finish();
+    await Promise.all([first, second]);
+    await m.EzoicAds.initialize({ domain: 'example.com' });
+    expect(m.initialize).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries after a failed initialize', async () => {
+    const m = freshModule();
+    const failure = Object.assign(new Error('network'), {
+      code: 'EzoicAds',
+      userInfo: { code: 4001 },
+    });
+    m.initialize.mockImplementationOnce(() => Promise.reject(failure));
+    await expect(m.EzoicAds.initialize({ domain: 'example.com' })).rejects.toBe(
+      failure
+    );
+    await expect(
+      m.EzoicAds.initialize({ domain: 'example.com' })
+    ).resolves.toBeUndefined();
+    expect(m.initialize).toHaveBeenCalledTimes(2);
+    expect(m.presentConsent).not.toHaveBeenCalled();
   });
 });
 

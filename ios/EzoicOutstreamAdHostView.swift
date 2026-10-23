@@ -18,7 +18,7 @@ import EzoicAdsSDKBinary
 /// ad (which returns a `NativeAd` we build a template around), the native
 /// outstream view renders itself (it attaches its own `AdManagerBannerView`),
 /// so this host just embeds it edge-to-edge, wires the delegate before
-/// `loadAd()`, and tears it down on `deinit`.
+/// `loadAd()`, and tears it down in `destroy()`.
 ///
 /// Load is deferred to `startLoad()` (called from the component view's
 /// `finalizeUpdates`) so the Fabric event emitter is attached before the native
@@ -87,9 +87,16 @@ import EzoicAdsSDKBinary
     hostDelegate?.outstreamAdDidDismissScreen()
   }
 
-  deinit {
-    // The native view also destroys itself on removeFromSuperview, but call it
-    // explicitly for a deterministic teardown. Safe to call multiple times.
+  /// Tears down the native outstream view. Called by the component view when
+  /// it discards this host (prop change, recycle) and again on `deinit`; safe
+  /// to call multiple times.
+  @objc public func destroy() {
+    hostDelegate = nil
     outstreamView?.destroy()
+    outstreamView = nil
+  }
+
+  deinit {
+    destroy()
   }
 }

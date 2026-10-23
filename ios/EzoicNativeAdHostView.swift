@@ -19,6 +19,7 @@ import EzoicAdsSDKBinary
   private var templateView: EzoicNativeAdTemplateView?
   private var adStyle = EzoicNativeAdStyle()
   private var loadStarted = false
+  private var destroyed = false
 
   /// Stores the ad unit id. The load is NOT started here — the Fabric
   /// component view calls `startLoad()` from `finalizeUpdates`, after the
@@ -43,7 +44,10 @@ import EzoicAdsSDKBinary
     if loadStarted { return }
     loadStarted = true
     EzoicNativeAd.load(adUnitIdentifier: adUnitId) { [weak self] result in
-      guard let self = self else { return }
+      guard let self = self, !self.destroyed else {
+        if case .success(let ad) = result { ad.destroy() }
+        return
+      }
       switch result {
       case .success(let ad):
         guard ad.nativeAd != nil else {
@@ -96,7 +100,17 @@ import EzoicAdsSDKBinary
     hostDelegate?.nativeAdDidDismissScreen()
   }
 
-  deinit {
+  /// Tears down the loaded native ad. Called by the component view when it
+  /// discards this host (prop change, recycle) and again on `deinit`; safe to
+  /// call multiple times. An ad that finishes loading afterwards is destroyed.
+  @objc public func destroy() {
+    destroyed = true
+    hostDelegate = nil
     ezoicNativeAd?.destroy()
+    ezoicNativeAd = nil
+  }
+
+  deinit {
+    destroy()
   }
 }

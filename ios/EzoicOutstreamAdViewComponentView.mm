@@ -37,9 +37,10 @@ using namespace facebook::react;
     // (mirrors prepareForRecycle) and reset the load guard so finalizeUpdates
     // starts a new load for the new id.
     if (_loadStarted) {
-      // Nil the abandoned host's delegate first: a late lifecycle callback from
-      // it would otherwise emit a Fabric event for the wrong ad unit.
-      _host.hostDelegate = nil;
+      // Destroy the abandoned host first: it releases the native view and
+      // drops its delegate, so a late lifecycle callback can't emit a Fabric
+      // event for the wrong ad unit.
+      [_host destroy];
       [_host removeFromSuperview];
       _host = [EzoicOutstreamAdHostView new];
       _host.hostDelegate = self;
@@ -92,11 +93,10 @@ using namespace facebook::react;
 }
 
 - (void)prepareForRecycle {
-  // Recycled views are reused for a new ad unit; rebuild the host (which owns
-  // the native EzoicOutstreamAdView, destroyed on deinit) and reset the guards.
-  // Nil the delegate first: a late lifecycle callback from the abandoned host
-  // would otherwise emit a Fabric event for the wrong ad unit.
-  _host.hostDelegate = nil;
+  // Recycled views are reused for a new ad unit; destroy the host (which owns
+  // the native EzoicOutstreamAdView and drops its delegate, so a late callback
+  // can't emit for the wrong ad unit), rebuild it and reset the guards.
+  [_host destroy];
   [_host removeFromSuperview];
   _host = [EzoicOutstreamAdHostView new];
   _host.hostDelegate = self;

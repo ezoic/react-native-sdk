@@ -7,6 +7,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 jest.mock('react-native', () => ({
   __esModule: true,
   codegenNativeComponent: (name: string) => name,
+  processColor: (color: unknown) => (color === 'black' ? 0xff000000 : null),
   TurboModuleRegistry: {
     getEnforcing: () => ({}),
   },
@@ -92,5 +93,24 @@ describe('EzoicNativeAdView missing handlers', () => {
     const style = { width: 320, height: 250 };
     const el = EzoicNativeAdView({ adUnitIdentifier: '1', style });
     expect(el.props.style).toEqual(style);
+  });
+});
+
+describe('EzoicNativeAdView adStyle', () => {
+  it('sends the template style to native as JSON with processed colors', () => {
+    const el = EzoicNativeAdView({
+      adUnitIdentifier: '1',
+      adStyle: { headlineTextColor: 'black', cornerRadius: 12 },
+    });
+    expect(el.props.adStyle).toBeUndefined();
+    expect(JSON.parse(el.props.adStyleJson)).toEqual({
+      headlineTextColor: 0xff000000,
+      cornerRadius: 12,
+    });
+  });
+
+  it('sends an empty string when no adStyle is given', () => {
+    const el = EzoicNativeAdView({ adUnitIdentifier: '1' });
+    expect(el.props.adStyleJson).toBe('');
   });
 });

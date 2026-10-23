@@ -103,11 +103,16 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       cmpEnabled = config.optBool("cmpEnabled", true)
     )
     val autoPresentConsent = config.optBool("autoPresentConsent", true)
-    EzoicAds.instance.initialize(app, configuration) { result ->
-      result.onSuccess {
-        promise.resolve(null)
-        if (autoPresentConsent) presentConsentAfterInit(configuration.debugEnabled)
-      }.onFailure { e -> promise.reject("EzoicAds", e.message, e) }
+    // Native initialize registers a ProcessLifecycleOwner observer, which
+    // AndroidX only allows on the main thread; off it, the call throws and
+    // the promise never settles.
+    UiThreadUtil.runOnUiThread {
+      EzoicAds.instance.initialize(app, configuration) { result ->
+        result.onSuccess {
+          promise.resolve(null)
+          if (autoPresentConsent) presentConsentAfterInit(configuration.debugEnabled)
+        }.onFailure { e -> promise.reject("EzoicAds", e.message, e) }
+      }
     }
   }
 

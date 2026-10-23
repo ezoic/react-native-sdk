@@ -275,6 +275,20 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  override fun destroyRewardedAd(adUnitIdentifier: String, promise: Promise) {
+    val id = adUnitIdentifier.toIntOrNull()
+    // A presenting ad is released by its dismiss / failed-to-show listener.
+    if (id != null && !pendingShows.containsKey(id)) {
+      rewardedAds.remove(id)?.let { ad ->
+        UiThreadUtil.runOnUiThread {
+          ad.listener = null
+          ad.destroy()
+        }
+      }
+    }
+    promise.resolve(null)
+  }
+
   override fun loadInterstitialAd(adUnitIdentifier: String, promise: Promise) {
     val id = adUnitIdentifier.toIntOrNull()
     if (id == null) {
@@ -342,6 +356,19 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     activity.runOnUiThread {
       ad.show(activity)
     }
+  }
+
+  override fun destroyInterstitialAd(adUnitIdentifier: String, promise: Promise) {
+    val id = adUnitIdentifier.toIntOrNull()
+    if (id != null && !pendingInterstitialShows.containsKey(id)) {
+      interstitialAds.remove(id)?.let { ad ->
+        UiThreadUtil.runOnUiThread {
+          ad.listener = null
+          ad.destroy()
+        }
+      }
+    }
+    promise.resolve(null)
   }
 
   override fun loadInstreamAd(adUnitIdentifier: Double, contentUrl: String?, promise: Promise) {
@@ -431,8 +458,9 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
   }
 
   override fun invalidate() {
-    // Module teardown: settle every pending instream load with an error and
-    // destroy every controller so no promise hangs and no native resource leaks.
+    // Module teardown (including a JS reload): settle every pending instream
+    // load with an error and destroy every instream controller and loaded
+    // full-screen ad so no promise hangs and no native resource leaks.
     for ((_, holder) in loadingInstream) {
       if (holder.settled.compareAndSet(false, true)) {
         holder.promise.reject("EzoicAds", "Module was destroyed while loading")
@@ -443,6 +471,14 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       ad.destroy()
     }
     instreamAds.clear()
+    val rewarded = rewardedAds.values.toList()
+    val interstitials = interstitialAds.values.toList()
+    rewardedAds.clear()
+    interstitialAds.clear()
+    UiThreadUtil.runOnUiThread {
+      rewarded.forEach { it.listener = null; it.destroy() }
+      interstitials.forEach { it.listener = null; it.destroy() }
+    }
     super.invalidate()
   }
 

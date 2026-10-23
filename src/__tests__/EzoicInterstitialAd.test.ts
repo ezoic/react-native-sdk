@@ -6,6 +6,7 @@ jest.mock('../NativeEzoicAds', () => ({
   default: {
     loadInterstitialAd: jest.fn(() => Promise.resolve()),
     showInterstitialAd: jest.fn(() => Promise.resolve()),
+    destroyInterstitialAd: jest.fn(() => Promise.resolve()),
   },
 }));
 
@@ -44,12 +45,17 @@ const handlerCount = (RN as unknown as { __handlerCount: () => number })
 
 const loadMock = NativeEzoicAds.loadInterstitialAd as jest.Mock;
 const showMock = NativeEzoicAds.showInterstitialAd as jest.Mock;
+const destroyMock = NativeEzoicAds.destroyInterstitialAd as jest.Mock<
+  (id: string) => Promise<void>
+>;
 
 const INTERSTITIAL_EVENT = 'EzoicInterstitialAdEvent';
 
 beforeEach(() => {
   loadMock.mockReset();
   showMock.mockReset();
+  destroyMock.mockReset();
+  destroyMock.mockImplementation(() => Promise.resolve());
   loadMock.mockImplementation(() => Promise.resolve());
   showMock.mockImplementation(() => Promise.resolve());
 });
@@ -251,5 +257,68 @@ describe('EzoicInterstitialAd double-load / double-show guards', () => {
     releaseFirst?.();
     await expect(first).resolves.toBeUndefined();
     ad.destroy();
+  });
+});
+
+describe('EzoicInterstitialAd.destroy', () => {
+  it('releases the native ad of an unshown ad, once', async () => {
+    const ad = await EzoicInterstitialAd.load('123');
+    ad.destroy();
+    ad.destroy();
+    expect(destroyMock).toHaveBeenCalledTimes(1);
+    expect(destroyMock).toHaveBeenCalledWith('123');
+  });
+
+  it('lets the same ad unit load again after destroy', async () => {
+    const loaded = new Set<string>();
+    loadMock.mockImplementation((...args: unknown[]) => {
+      const id = args[0] as string;
+      if (loaded.has(id)) {
+        return Promise.reject(new Error('already loaded/loading'));
+      }
+      loaded.add(id);
+      return Promise.resolve();
+    });
+    destroyMock.mockImplementation((id: string) => {
+      loaded.delete(id);
+      return Promise.resolve();
+    });
+
+    const first = await EzoicInterstitialAd.load('123');
+    first.destroy();
+    const second = await EzoicInterstitialAd.load('123');
+    expect(second.adUnitIdentifier).toBe('123');
+    second.destroy();
+  });
+
+  it('swallows a native destroy rejection', async () => {
+    destroyMock.mockImplementationOnce(() => Promise.reject(new Error('gone')));
+    const ad = await EzoicInterstitialAd.load('123');
+    expect(() => ad.destroy()).not.toThrow();
+    await Promise.resolve();
+  });
+
+  it('skips the native call once the ad was shown', async () => {
+    const ad = await EzoicInterstitialAd.load('123');
+    await ad.show();
+    ad.destroy();
+    expect(destroyMock).not.toHaveBeenCalled();
+  });
+
+  it('skips the native call after a terminal event', async () => {
+    for (const type of ['dismissed', 'failedToShow']) {
+      const ad = await EzoicInterstitialAd.load('123');
+      emit(INTERSTITIAL_EVENT, { adUnitIdentifier: '123', type });
+      ad.destroy();
+    }
+    expect(destroyMock).not.toHaveBeenCalled();
+  });
+
+  it('does not release native state when the load itself failed', async () => {
+    loadMock.mockImplementationOnce(() =>
+      Promise.reject(new Error('already loaded/loading'))
+    );
+    await expect(EzoicInterstitialAd.load('123')).rejects.toThrow('already');
+    expect(destroyMock).not.toHaveBeenCalled();
   });
 });

@@ -295,6 +295,19 @@ import EzoicAdsSDKBinary
     }
   }
 
+  @objc public func destroyRewardedAd(_ adUnitIdentifier: String,
+                                      resolve: @escaping (Any?) -> Void) {
+    onMain { [weak self] in
+      // A presenting ad is released by its dismiss / failed-to-present delegate call.
+      if let self = self, let id = Int(adUnitIdentifier), self.pendingShows[id] == nil,
+         let ad = self.rewardedAds.removeValue(forKey: id) {
+        ad.delegate = nil
+        ad.destroy()
+      }
+      resolve(nil)
+    }
+  }
+
   private func emit(_ ad: EzoicRewardedAd, _ type: String, _ extra: [String: Any] = [:]) {
     var body: [String: Any] = [
       "adUnitIdentifier": String(ad.adUnitIdentifier),
@@ -353,6 +366,18 @@ import EzoicAdsSDKBinary
       // settled from the delegate (dismiss = resolve, failed-to-present = reject).
       // Presenting from nil lets GMA use the application's top view controller.
       ad.show(from: nil)
+    }
+  }
+
+  @objc public func destroyInterstitialAd(_ adUnitIdentifier: String,
+                                          resolve: @escaping (Any?) -> Void) {
+    onMain { [weak self] in
+      if let self = self, let id = Int(adUnitIdentifier), self.pendingInterstitialShows[id] == nil,
+         let ad = self.interstitialAds.removeValue(forKey: id) {
+        ad.delegate = nil
+        ad.destroy()
+      }
+      resolve(nil)
     }
   }
 
@@ -455,8 +480,9 @@ import EzoicAdsSDKBinary
   }
 
   /// Module teardown parity with Android's `EzoicAdsModule.invalidate`: settle
-  /// every pending instream load with an error and destroy every controller so
-  /// no promise hangs and no native resource leaks.
+  /// every pending instream load with an error and destroy every instream
+  /// controller and loaded full-screen ad so no promise hangs and no native
+  /// resource leaks.
   @objc public func invalidate() {
     onMain { [weak self] in
       guard let self = self else { return }
@@ -469,6 +495,16 @@ import EzoicAdsSDKBinary
         ad.destroy()
       }
       self.instreamAds.removeAll()
+      for (_, ad) in self.rewardedAds {
+        ad.delegate = nil
+        ad.destroy()
+      }
+      self.rewardedAds.removeAll()
+      for (_, ad) in self.interstitialAds {
+        ad.delegate = nil
+        ad.destroy()
+      }
+      self.interstitialAds.removeAll()
     }
   }
 }

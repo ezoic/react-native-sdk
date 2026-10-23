@@ -121,6 +121,12 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
                  reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
 }
 
+- (void)destroyRewardedAd:(NSString *)adUnitIdentifier
+                  resolve:(RCTPromiseResolveBlock)resolve
+                   reject:(RCTPromiseRejectBlock)reject {
+  [_impl destroyRewardedAd:adUnitIdentifier resolve:^(id _Nullable v) { resolve(v); }];
+}
+
 - (void)loadInterstitialAd:(NSString *)adUnitIdentifier
                    resolve:(RCTPromiseResolveBlock)resolve
                     reject:(RCTPromiseRejectBlock)reject {
@@ -135,6 +141,12 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   [_impl showInterstitialAd:adUnitIdentifier
                     resolve:^(id _Nullable v) { resolve(v); }
                      reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
+}
+
+- (void)destroyInterstitialAd:(NSString *)adUnitIdentifier
+                      resolve:(RCTPromiseResolveBlock)resolve
+                       reject:(RCTPromiseRejectBlock)reject {
+  [_impl destroyInterstitialAd:adUnitIdentifier resolve:^(id _Nullable v) { resolve(v); }];
 }
 
 - (void)loadInstreamAd:(double)adUnitIdentifier

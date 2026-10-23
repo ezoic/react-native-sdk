@@ -60,9 +60,42 @@ function presentConsent(
   );
 }
 
+/** Native `EzoicError.alreadyInitialized`, delivered in `error.userInfo.code`. */
+const ALREADY_INITIALIZED = 1002;
+
+let initialization: Promise<void> | null = null;
+
+async function initializeNative(config: EzoicConfig): Promise<void> {
+  try {
+    await NativeEzoicAds.initialize(config);
+  } catch (e) {
+    const code = (e as { userInfo?: { code?: unknown } } | null)?.userInfo
+      ?.code;
+    if (code !== ALREADY_INITIALIZED) throw e;
+    // The native SDK outlives JS reloads (Metro, CodePush, Expo), so it is
+    // already up; only the consent prompt the native success path runs is owed.
+    if (config.autoPresentConsent !== false) {
+      NativeEzoicAds.presentConsentIfRequired().catch(() => {});
+    }
+  }
+}
+
 export const EzoicAds = {
+  /**
+   * Initializes the native SDK. Safe to call more than once: concurrent and
+   * later calls share the first call's result (the first `config` wins), a JS
+   * reload resolves even though the native SDK is already initialized, and a
+   * failed call is retried by the next one.
+   */
   initialize(config: EzoicConfig): Promise<void> {
-    return NativeEzoicAds.initialize(normalizeConfig(config));
+    const normalized = normalizeConfig(config);
+    if (initialization) return initialization;
+    const pending = initializeNative(normalized);
+    initialization = pending;
+    pending.catch(() => {
+      if (initialization === pending) initialization = null;
+    });
+    return pending;
   },
   setGDPRConsent(applies: boolean, consentString?: string): void {
     NativeEzoicAds.setGDPRConsent(applies, consentString);

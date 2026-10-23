@@ -38,6 +38,7 @@ using namespace facebook::react;
     // (mirrors prepareForRecycle) and reset the load guard so
     // finalizeUpdates starts a new load for the new id.
     if (_loadStarted) {
+      [_host destroy];
       [_host removeFromSuperview];
       _host = [EzoicNativeAdHostView new];
       _host.hostDelegate = self;
@@ -90,8 +91,9 @@ using namespace facebook::react;
 }
 
 - (void)prepareForRecycle {
-  // Recycled views are reused for a new ad unit; rebuild the host (which owns
-  // the loaded EzoicNativeAd, destroyed on deinit) and reset the load guards.
+  // Recycled views are reused for a new ad unit; destroy the host (which owns
+  // the loaded EzoicNativeAd), rebuild it and reset the load guards.
+  [_host destroy];
   [_host removeFromSuperview];
   _host = [EzoicNativeAdHostView new];
   _host.hostDelegate = self;

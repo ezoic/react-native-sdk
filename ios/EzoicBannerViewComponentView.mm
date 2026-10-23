@@ -29,10 +29,11 @@ using namespace facebook::react;
 }
 
 // The host loads exactly once; a new ad unit/size or a recycled component view
-// gets a fresh host. Nil the abandoned host's delegate first: a late lifecycle
-// callback from it would otherwise emit a Fabric event for the wrong ad.
+// gets a fresh host. Destroy the abandoned host first: it releases the native
+// banner and drops its delegate, so a late lifecycle callback can't emit a
+// Fabric event for the wrong ad.
 - (void)installFreshHost {
-  _host.hostDelegate = nil;
+  [_host destroy];
   [_host removeFromSuperview];
   _host = [EzoicBannerHostView new];
   _host.hostDelegate = self;

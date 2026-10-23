@@ -46,6 +46,8 @@ export class EzoicInterstitialAd {
 
   private listeners: EzoicInterstitialAdListeners = {};
   private subscription: EmitterSubscription | null = null;
+  private spent = false;
+  private destroyed = false;
 
   private constructor(adUnitIdentifier: string) {
     this.adUnitIdentifier = adUnitIdentifier;
@@ -71,7 +73,7 @@ export class EzoicInterstitialAd {
       await NativeEzoicAds.loadInterstitialAd(id);
       return ad;
     } catch (error) {
-      ad.destroy();
+      ad.release();
       throw error;
     }
   }
@@ -88,10 +90,27 @@ export class EzoicInterstitialAd {
    */
   async show(): Promise<void> {
     await NativeEzoicAds.showInterstitialAd(this.adUnitIdentifier);
+    this.spent = true;
   }
 
-  /** Releases the event subscription. Safe to call multiple times. */
+  /**
+   * Releases the ad: drops the listeners and, if the ad was loaded but never
+   * shown, discards the native ad so a new one can be loaded for this unit.
+   * Safe to call multiple times.
+   */
   destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    const wasSpent = this.spent;
+    this.release();
+    if (!wasSpent) {
+      NativeEzoicAds.destroyInterstitialAd(this.adUnitIdentifier).catch(
+        () => {}
+      );
+    }
+  }
+
+  private release(): void {
     this.subscription?.remove();
     this.subscription = null;
     this.listeners = {};
@@ -108,7 +127,8 @@ export class EzoicInterstitialAd {
           code: event.code,
         });
         // Failure to show is terminal — the native ad is single-use.
-        this.destroy();
+        this.spent = true;
+        this.release();
         break;
       case 'impression':
         this.listeners.onImpression?.();
@@ -119,7 +139,8 @@ export class EzoicInterstitialAd {
       case 'dismissed':
         this.listeners.onDismissed?.();
         // Dismissal is terminal — the native ad is single-use.
-        this.destroy();
+        this.spent = true;
+        this.release();
         break;
     }
   }

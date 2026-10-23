@@ -58,8 +58,12 @@ export interface Spec extends TurboModule {
     adUnitIdentifier: string,
     rewardName: string | null
   ): Promise<EzoicRewardResult>;
+  // Discards a loaded, unshown ad so the unit can load again; a no-op while a
+  // show is in flight or when nothing is loaded.
+  destroyRewardedAd(adUnitIdentifier: string): Promise<void>;
   loadInterstitialAd(adUnitIdentifier: string): Promise<void>;
   showInterstitialAd(adUnitIdentifier: string): Promise<void>;
+  destroyInterstitialAd(adUnitIdentifier: string): Promise<void>;
   // Instream video: the native `EzoicInstreamAd` renders nothing — its sole
   // deliverable is a GAM VAST ad-tag URL the host feeds to its own IMA player.
   // The id is numeric here (matches the native controller's `Int`/`Int`

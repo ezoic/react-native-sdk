@@ -81,9 +81,16 @@ import EzoicAdsSDKBinary
   public func bannerViewWillPresentScreen(_ bannerView: EzoicBannerView) { hostDelegate?.bannerWillPresentScreen() }
   public func bannerViewDidDismissScreen(_ bannerView: EzoicBannerView) { hostDelegate?.bannerDidDismissScreen() }
 
-  deinit {
-    // The native view also destroys itself on removeFromSuperview, but call it
-    // explicitly for a deterministic teardown. Safe to call multiple times.
+  /// Tears down the native banner. Called by the component view when it
+  /// discards this host (prop change, recycle) and again on `deinit`; safe to
+  /// call multiple times.
+  @objc public func destroy() {
+    hostDelegate = nil
     banner?.destroy()
+    banner = nil
+  }
+
+  deinit {
+    destroy()
   }
 }

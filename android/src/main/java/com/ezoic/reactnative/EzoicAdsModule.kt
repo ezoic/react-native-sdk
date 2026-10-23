@@ -111,7 +111,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         result.onSuccess {
           promise.resolve(null)
           if (autoPresentConsent) presentConsentAfterInit(configuration.debugEnabled)
-        }.onFailure { e -> promise.reject("EzoicAds", e.message, e) }
+        }.onFailure { e -> promise.rejectWithCode(e, "Initialization failed") }
       }
     }
   }
@@ -210,7 +210,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         rewardedAds[id] = ad
         promise.resolve(null)
       }.onFailure { e ->
-        promise.rejectLoad(e, "Rewarded ad failed to load")
+        promise.rejectWithCode(e, "Rewarded ad failed to load")
       }
     }
   }
@@ -275,6 +275,20 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  override fun destroyRewardedAd(adUnitIdentifier: String, promise: Promise) {
+    val id = adUnitIdentifier.toIntOrNull()
+    // A presenting ad is released by its dismiss / failed-to-show listener.
+    if (id != null && !pendingShows.containsKey(id)) {
+      rewardedAds.remove(id)?.let { ad ->
+        UiThreadUtil.runOnUiThread {
+          ad.listener = null
+          ad.destroy()
+        }
+      }
+    }
+    promise.resolve(null)
+  }
+
   override fun loadInterstitialAd(adUnitIdentifier: String, promise: Promise) {
     val id = adUnitIdentifier.toIntOrNull()
     if (id == null) {
@@ -292,7 +306,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         interstitialAds[id] = ad
         promise.resolve(null)
       }.onFailure { e ->
-        promise.rejectLoad(e, "Interstitial ad failed to load")
+        promise.rejectWithCode(e, "Interstitial ad failed to load")
       }
     }
   }
@@ -344,6 +358,19 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  override fun destroyInterstitialAd(adUnitIdentifier: String, promise: Promise) {
+    val id = adUnitIdentifier.toIntOrNull()
+    if (id != null && !pendingInterstitialShows.containsKey(id)) {
+      interstitialAds.remove(id)?.let { ad ->
+        UiThreadUtil.runOnUiThread {
+          ad.listener = null
+          ad.destroy()
+        }
+      }
+    }
+    promise.resolve(null)
+  }
+
   override fun loadInstreamAd(adUnitIdentifier: Double, contentUrl: String?, promise: Promise) {
     val id = adUnitIdentifier.toInt()
     if (id <= 0) {
@@ -381,7 +408,7 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       override fun onAdFailedToLoad(error: EzoicError) {
         if (holder.settled.compareAndSet(false, true)) {
           loadingInstream.remove(id)
-          promise.rejectLoad(error, "Instream ad failed to load")
+          promise.rejectWithCode(error, "Instream ad failed to load")
         }
       }
     })
@@ -431,8 +458,9 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
   }
 
   override fun invalidate() {
-    // Module teardown: settle every pending instream load with an error and
-    // destroy every controller so no promise hangs and no native resource leaks.
+    // Module teardown (including a JS reload): settle every pending instream
+    // load with an error and destroy every instream controller and loaded
+    // full-screen ad so no promise hangs and no native resource leaks.
     for ((_, holder) in loadingInstream) {
       if (holder.settled.compareAndSet(false, true)) {
         holder.promise.reject("EzoicAds", "Module was destroyed while loading")
@@ -443,6 +471,14 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       ad.destroy()
     }
     instreamAds.clear()
+    val rewarded = rewardedAds.values.toList()
+    val interstitials = interstitialAds.values.toList()
+    rewardedAds.clear()
+    interstitialAds.clear()
+    UiThreadUtil.runOnUiThread {
+      rewarded.forEach { it.listener = null; it.destroy() }
+      interstitials.forEach { it.listener = null; it.destroy() }
+    }
     super.invalidate()
   }
 
@@ -552,10 +588,10 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
   }
 
   /**
-   * Rejects a load with the string code "EzoicAds" and, for native errors, the
+   * Rejects with the string code "EzoicAds" and, for native errors, the
    * numeric `EzoicError.code` in `userInfo` (JS: `error.userInfo.code`).
    */
-  private fun Promise.rejectLoad(e: Throwable, fallbackMessage: String) {
+  private fun Promise.rejectWithCode(e: Throwable, fallbackMessage: String) {
     val userInfo = (e as? EzoicError)?.let { error ->
       Arguments.createMap().apply { putInt("code", error.code) }
     }

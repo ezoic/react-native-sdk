@@ -1,6 +1,14 @@
 require "json"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
+ios_sdk = package["ezoic"]["iosSdk"]
+ios_sdk_framework = "ios/Frameworks/EzoicAdsSDKBinary.xcframework"
+
+unless File.exist?(File.join(__dir__, ios_sdk_framework, "Info.plist"))
+  raise Pod::Informative, "EzoicReactNativeSdk: #{ios_sdk_framework} is missing. " \
+    "It ships in the npm package; in a git checkout run `npm install` or " \
+    "`node scripts/fetch-ios-sdk.js` in #{__dir__} to download EzoicAdsSDK #{ios_sdk["version"]}"
+end
 
 Pod::Spec.new do |s|
   s.name         = "EzoicReactNativeSdk"
@@ -15,14 +23,22 @@ Pod::Spec.new do |s|
 
   s.source_files = "ios/**/*.{h,m,mm,swift,cpp}"
   s.private_header_files = "ios/**/*.h"
+  # exclude_files also filters vendored_frameworks, so exclude only the
+  # contents of the xcframework, not the bundle itself.
+  s.exclude_files = "ios/Frameworks/*.xcframework/**/*"
 
   install_modules_dependencies(s)
 
-  # Native Ezoic Ads SDK (vends the `EzoicAdsSDKBinary` module). Brings in
-  # PrebidMobile + Google-Mobile-Ads-SDK transitively.
-  s.dependency "EzoicAdsSDK", "~> 1.19.1"
-  # The native-ad host imports GoogleMobileAds directly (NativeAdView,
-  # MediaView, NativeAd). Pin GMA 13 so the module is on the compile path.
-  s.dependency "Google-Mobile-Ads-SDK", "~> 13.0"
+  # Native Ezoic Ads SDK (vends the `EzoicAdsSDKBinary` module), bundled in the
+  # npm package by scripts/fetch-ios-sdk.js instead of the EzoicAdsSDK pod.
+  # This is the `-cocoapods` build: a static framework that links the host's
+  # PrebidMobile / GoogleMobileAds / DTBiOSSDK rather than embedding them.
+  s.vendored_frameworks = ios_sdk_framework
+
+  # Pins from package.json `ezoic.iosSdk.podDependencies`; they must match what
+  # the bundled binary was built against (PrebidMobile's Swift ABI is exact).
+  ios_sdk["podDependencies"].each do |name, requirement|
+    s.dependency name, requirement
+  end
   s.swift_version = "5.9"
 end

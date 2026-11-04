@@ -84,3 +84,6 @@ android/generated
 
 # React Native Nitro Modules
 nitrogen/
+
+# Native iOS SDK, downloaded by scripts/fetch-ios-sdk.js
+ios/Frameworks/

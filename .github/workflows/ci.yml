@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      # `prepare` builds lib/ and downloads the bundled iOS SDK.
+      - run: npm ci
+
+      - run: node scripts/fetch-ios-sdk.js --check
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - run: npm test
+
+      - run: npm pack --pack-destination "$RUNNER_TEMP"
+
+      - name: Verify the tarball bundles the iOS SDK
+        run: |
+          FILES="$(tar -tzf "$RUNNER_TEMP"/ezoic-react-native-sdk-*.tgz)"
+          XCFRAMEWORK=package/ios/Frameworks/EzoicAdsSDKBinary.xcframework
+          for f in \
+            "$XCFRAMEWORK/Info.plist" \
+            "$XCFRAMEWORK/ios-arm64/EzoicAdsSDKBinary.framework/EzoicAdsSDKBinary" \
+            "$XCFRAMEWORK/ios-arm64_x86_64-simulator/EzoicAdsSDKBinary.framework/EzoicAdsSDKBinary"; do
+            if ! grep -qxF "$f" <<< "$FILES"; then
+              echo "::error::Tarball is missing $f"
+              exit 1
+            fi
+          done

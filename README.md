@@ -3,7 +3,7 @@
 Ezoic Ads SDK for React Native (Prebid + Google Ad Manager banner, native, interstitial, rewarded, outstream and instream video ads).
 
 A thin React Native (New Architecture) wrapper over the native Ezoic Ads SDKs
-for iOS (`EzoicAdsSDK`, via CocoaPods) and Android
+for iOS (`EzoicAdsSDK`, bundled in this package) and Android
 (`com.ezoic.sdk:ezoic-ads-sdk`, via Maven Central). It exposes an imperative
 `EzoicAds` TurboModule plus `EzoicBannerView`, `EzoicNativeAdView` and
 `EzoicOutstreamAdView` Fabric components, and the `EzoicInstreamAd` controller.
@@ -21,10 +21,19 @@ npm install @ezoic/react-native-sdk
 
 ### iOS
 
-The native `EzoicAdsSDK` ships as a binary Swift framework that depends on
-`PrebidMobile` (a Swift source pod). Consuming a binary Swift framework with
-Swift dependencies requires framework-based linkage, so your app's `Podfile`
-must enable static frameworks:
+The native `EzoicAdsSDK` binary framework is bundled inside this npm package
+(`@ezoic/react-native-sdk` 1.20.0 bundles `EzoicAdsSDK` 1.20.0), so CocoaPods
+does not download an `EzoicAdsSDK` pod and the CocoaPods trunk going read-only
+does not affect React Native apps. `pod install` still pulls its dependencies
+`PrebidMobile`, `Google-Mobile-Ads-SDK` and `AmazonPublisherServicesSDK` from
+CocoaPods as before; no `Podfile` changes are needed when upgrading. If
+`pod install` reports that it could not find compatible versions for
+`AmazonPublisherServicesSDK` (your `Podfile.lock` still pins the previous
+version), run `pod update AmazonPublisherServicesSDK` once.
+
+The framework depends on `PrebidMobile` (a Swift source pod). Consuming a
+binary Swift framework with Swift dependencies requires framework-based
+linkage, so your app's `Podfile` must enable static frameworks:
 
 ```ruby
 use_frameworks! :linkage => :static

@@ -1,6 +1,6 @@
 {
   "name": "@ezoic/react-native-sdk",
-  "version": "1.19.1",
+  "version": "1.20.0",
   "description": "Ezoic Ads SDK for React Native (Prebid + Google Ad Manager banner, native, interstitial, rewarded, outstream and instream video ads).",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -33,7 +33,8 @@
   ],
   "scripts": {
     "clean": "del-cli android/build lib",
-    "prepare": "bob build",
+    "prepack": "node scripts/fetch-ios-sdk.js",
+    "prepare": "bob build && node scripts/fetch-ios-sdk.js",
     "typecheck": "tsc",
     "test": "jest",
     "lint": "eslint \"**/*.{js,ts,tsx}\""
@@ -85,6 +86,17 @@
   "peerDependencies": {
     "react": "*",
     "react-native": "*"
+  },
+  "ezoic": {
+    "iosSdk": {
+      "version": "1.19.2",
+      "sha256": "172348359d14a4350cda970ce4b3aff3b6df272417cc5e8aeefe158d746a0ff1",
+      "podDependencies": {
+        "PrebidMobile": "3.4.1",
+        "Google-Mobile-Ads-SDK": "~> 13.0",
+        "AmazonPublisherServicesSDK": "5.3.3"
+      }
+    }
   },
   "react-native-builder-bob": {
     "source": "src",

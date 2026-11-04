@@ -62,11 +62,16 @@ jobs:
 
       - run: npm ci
 
+      # `prepare` (run by `npm ci`) downloads the pinned native iOS SDK into
+      # ios/Frameworks; it must be in the tarball.
+      - run: node scripts/fetch-ios-sdk.js --check
+
       - run: npm run typecheck
 
       - run: npm test
 
-      # react-native-builder-bob's `prepare` script builds lib/ during publish.
+      # `prepack` re-verifies the bundled iOS SDK and react-native-builder-bob's
+      # `prepare` script builds lib/ during publish.
       # Provenance is generated automatically for OIDC publishes from a public
       # repo; the flag makes the intent explicit.
       - run: npm publish --provenance --access public

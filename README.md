@@ -26,7 +26,10 @@ The native `EzoicAdsSDK` binary framework is bundled inside this npm package
 does not download an `EzoicAdsSDK` pod and the CocoaPods trunk going read-only
 does not affect React Native apps. `pod install` still pulls its dependencies
 `PrebidMobile`, `Google-Mobile-Ads-SDK` and `AmazonPublisherServicesSDK` from
-CocoaPods as before; no `Podfile` changes are needed when upgrading.
+CocoaPods as before; no `Podfile` changes are needed when upgrading. If
+`pod install` reports that it could not find compatible versions for
+`AmazonPublisherServicesSDK` (your `Podfile.lock` still pins the previous
+version), run `pod update AmazonPublisherServicesSDK` once.
 
 The framework depends on `PrebidMobile` (a Swift source pod). Consuming a
 binary Swift framework with Swift dependencies requires framework-based

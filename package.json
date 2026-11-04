@@ -89,12 +89,12 @@
   },
   "ezoic": {
     "iosSdk": {
-      "version": "1.19.2",
-      "sha256": "172348359d14a4350cda970ce4b3aff3b6df272417cc5e8aeefe158d746a0ff1",
+      "version": "1.20.0",
+      "sha256": "30e25a3356cd2f4534faa8013962318651a60504bcdb7739f106309c8291cb15",
       "podDependencies": {
         "PrebidMobile": "3.4.1",
         "Google-Mobile-Ads-SDK": "~> 13.0",
-        "AmazonPublisherServicesSDK": "5.3.3"
+        "AmazonPublisherServicesSDK": "5.6.6"
       }
     }
   },

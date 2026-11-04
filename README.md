@@ -11,7 +11,7 @@ for iOS (`EzoicAdsSDK`, bundled in this package) and Android
 ## Requirements
 
 - React Native 0.76+ with the New Architecture enabled.
-- iOS 15.0+ and Xcode 26.2+ (required by the native `EzoicAdsSDK` 1.18), Android `minSdk` 24+ and Kotlin 2.1+.
+- iOS 15.0+ and Xcode 26.2+ (required by the native `EzoicAdsSDK` 1.18), Android `minSdk` 24+ and Kotlin 2.2+ (see [Android](#android)).
 
 ## Installation
 
@@ -22,7 +22,7 @@ npm install @ezoic/react-native-sdk
 ### iOS
 
 The native `EzoicAdsSDK` binary framework is bundled inside this npm package
-(`@ezoic/react-native-sdk` 1.20.0 bundles `EzoicAdsSDK` 1.20.0), so CocoaPods
+(`@ezoic/react-native-sdk` 1.21.0 bundles `EzoicAdsSDK` 1.21.0), so CocoaPods
 does not download an `EzoicAdsSDK` pod and the CocoaPods trunk going read-only
 does not affect React Native apps. `pod install` still pulls its dependencies
 `PrebidMobile`, `Google-Mobile-Ads-SDK` and `AmazonPublisherServicesSDK` from
@@ -52,7 +52,35 @@ and the SKAdNetwork IDs to `ios/<YourApp>/Info.plist`; see
 [docs.ezoic.com/skadnetworkids.xml](https://docs.ezoic.com/skadnetworkids.xml),
 not just Google's: Apple reads these only from the app's `Info.plist`, and
 buyers whose ID is missing (Amazon, InMobi, Magnite, PubMatic and other
-non-Google buyers) can't use SKAdNetwork attribution.
+non-Google buyers) can't use SKAdNetwork attribution. With `debugEnabled: true`,
+`initialize` logs a warning when `Info.plist` has no `SKAdNetworkItems`, is
+missing Google's `cstr6suwn9.skadnetwork` or InMobi's `wzmmz9fp6w.skadnetwork`,
+or lists an identifier with uppercase letters (Apple ignores those).
+
+### Android
+
+The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.21.0 from Maven Central,
+which brings in Google Mobile Ads (`play-services-ads`) 25.5.0 and Google's
+InMobi mediation adapter (InMobi bids in Google Ad Manager auctions; nothing to
+configure). The wrapper's Kotlin compiles against Google Mobile Ads 25.5.0, so
+the app's Kotlin Gradle plugin must be 2.2 or newer. React Native 0.87+
+templates already use Kotlin 2.2. On React Native 0.86 and earlier (Kotlin
+2.1.20) the build fails with "Module was compiled with an incompatible version
+of Kotlin. The binary version of its metadata is 2.3.0, expected version is
+2.1.0"; pin the Kotlin Gradle plugin in `android/build.gradle` (setting
+`kotlinVersion` alone is not enough, because React Native's Gradle plugin
+supplies Kotlin 2.1.20 otherwise):
+
+```groovy
+buildscript {
+    ext {
+        kotlinVersion = "2.2.21"
+    }
+    dependencies {
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.21")
+    }
+}
+```
 
 ## Usage
 

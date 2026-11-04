@@ -21,15 +21,6 @@ import EzoicAdsSDKBinary
   @objc public var collapseOnNoFill: Bool = true {
     didSet { banner?.collapseOnNoFill = collapseOnNoFill }
   }
-  /// Refresh overrides from JS. A negative value (the codegen default -1)
-  /// means not set, passed to the native banner as nil = follow the server.
-  /// Read at `loadAd()`, so a change after load applies on the next load.
-  @objc public var refreshIntervalSeconds: Int = -1 {
-    didSet { banner?.refreshIntervalSeconds = Self.refreshOverride(refreshIntervalSeconds) }
-  }
-  @objc public var refreshMaxCount: Int = -1 {
-    didSet { banner?.refreshMaxCount = Self.refreshOverride(refreshMaxCount) }
-  }
   private var banner: EzoicBannerView?
   private var adUnitId: Int = 0
   private var sizes: [String] = []
@@ -53,8 +44,6 @@ import EzoicAdsSDKBinary
 
     let view = EzoicBannerView(adUnitIdentifier: adUnitId)
     view.collapseOnNoFill = collapseOnNoFill
-    view.refreshIntervalSeconds = Self.refreshOverride(refreshIntervalSeconds)
-    view.refreshMaxCount = Self.refreshOverride(refreshMaxCount)
     view.delegate = self
     view.translatesAutoresizingMaskIntoConstraints = false
     addSubview(view)
@@ -65,8 +54,6 @@ import EzoicAdsSDKBinary
     banner = view
     if sizes.isEmpty { view.loadAd() } else { view.loadAd(sizes: sizes) }
   }
-
-  static func refreshOverride(_ value: Int) -> Int? { value < 0 ? nil : value }
 
   // MARK: - EzoicBannerViewDelegate
   public func bannerViewDidLoad(_ bannerView: EzoicBannerView) { hostDelegate?.bannerDidLoad() }

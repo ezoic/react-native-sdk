@@ -45,6 +45,15 @@ Then install pods:
 cd ios && RCT_NEW_ARCH_ENABLED=1 pod install
 ```
 
+Add your Google Ad Manager application ID, `NSUserTrackingUsageDescription`
+and the SKAdNetwork IDs to `ios/<YourApp>/Info.plist`; see
+[iOS Setup](https://docs.ezoic.com/docs/mobileapps/react-native/#ios-setup).
+`SKAdNetworkItems` needs every ID in Ezoic's combined list,
+[docs.ezoic.com/skadnetworkids.xml](https://docs.ezoic.com/skadnetworkids.xml),
+not just Google's: Apple reads these only from the app's `Info.plist`, and
+buyers whose ID is missing (Amazon, InMobi, Magnite, PubMatic and other
+non-Google buyers) can't use SKAdNetwork attribution.
+
 ## Usage
 
 ```tsx

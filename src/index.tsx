@@ -5,12 +5,7 @@ import NativeEzoicAds, { type EzoicConfig } from './NativeEzoicAds';
 import EzoicBannerNative from './EzoicBannerViewNativeComponent';
 import EzoicNativeAdNative from './EzoicNativeAdViewNativeComponent';
 import EzoicOutstreamNative from './EzoicOutstreamAdViewNativeComponent';
-import {
-  coerceAdUnitId,
-  normalizeConfig,
-  normalizeRefreshOverride,
-  normalizeSize,
-} from './helpers';
+import { coerceAdUnitId, normalizeConfig, normalizeSize } from './helpers';
 import {
   consentFailure,
   parseConsentOutcome,
@@ -189,17 +184,9 @@ export interface EzoicBannerViewProps {
   style?: StyleProp<ViewStyle>;
   /** Collapse the view (height 0) when a load fails and no ad is displayed. Default `true`. */
   collapseOnNoFill?: boolean;
-  /**
-   * Seconds between automatic refreshes. Omit (or `null`) to follow the Ezoic
-   * server setting; `0` turns refresh off; values below 30 are raised to 30.
-   * Read when the banner loads.
-   */
+  /** @deprecated Ignored: Ezoic sets the banner refresh interval. */
   refreshIntervalSeconds?: number | null;
-  /**
-   * Maximum automatic refreshes per load. Omit (or `null`) to follow the Ezoic
-   * server setting; `0` means no limit; values above 100 are capped at 100.
-   * Read when the banner loads.
-   */
+  /** @deprecated Ignored: Ezoic sets the banner refresh limit. */
   refreshMaxCount?: number | null;
   onLoad?: () => void;
   onError?: (error: EzoicBannerError) => void;
@@ -217,8 +204,6 @@ export function EzoicBannerView(props: EzoicBannerViewProps) {
     size,
     style,
     collapseOnNoFill = true,
-    refreshIntervalSeconds,
-    refreshMaxCount,
     onLoad,
     onError,
     onImpression,
@@ -240,8 +225,9 @@ export function EzoicBannerView(props: EzoicBannerViewProps) {
       adUnitIdentifier={coerceAdUnitId(adUnitIdentifier)}
       size={normalizeSize(size)}
       collapseOnNoFill={collapseOnNoFill}
-      refreshIntervalSeconds={normalizeRefreshOverride(refreshIntervalSeconds)}
-      refreshMaxCount={normalizeRefreshOverride(refreshMaxCount)}
+      // Deprecated and ignored: Ezoic sets banner refresh.
+      refreshIntervalSeconds={undefined}
+      refreshMaxCount={undefined}
       onLoad={onLoad ? () => onLoad() : undefined}
       onError={onError ? (e) => onError(e.nativeEvent) : undefined}
       onImpression={onImpression ? () => onImpression() : undefined}

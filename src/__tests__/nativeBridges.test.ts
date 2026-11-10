@@ -40,6 +40,25 @@ const bridges = [
     kotlinCode:
       /\(this as\? EzoicError\)\?\.code \?: \(this as\? CmpError\)\?\.code \?: UNKNOWN_ERROR_CODE/,
   },
+  {
+    name: '@ezoic/react-native-cmp-sdk',
+    spec: ['cmp', 'src', 'NativeEzoicCmp.ts'],
+    kotlin: [
+      'cmp',
+      'android',
+      'src',
+      'main',
+      'java',
+      'com',
+      'ezoic',
+      'reactnative',
+      'cmp',
+      'EzoicCmpModule.kt',
+    ],
+    objc: ['cmp', 'ios', 'EzoicReactNativeCmpSdk.mm'],
+    swift: ['cmp', 'ios', 'EzoicCmpImpl.swift'],
+    kotlinCode: /\(this as\? CmpError\)\?\.code \?: UNKNOWN_ERROR_CODE/,
+  },
 ];
 
 describe.each(bridges)('$name native bridge', (bridge) => {

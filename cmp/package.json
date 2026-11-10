@@ -1,0 +1,101 @@
+{
+  "name": "@ezoic/react-native-cmp-sdk",
+  "version": "1.22.0",
+  "description": "Ezoic consent management for React Native apps of Ezoic publishers: IAB TCF 2.4 dialog in GDPR regions and US-state privacy (GPP) notice and Do Not Sell choice.",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "ios",
+    "*.podspec",
+    "!ios/build",
+    "!android/build",
+    "!android/gradle",
+    "!android/gradlew",
+    "!android/gradlew.bat",
+    "!android/local.properties",
+    "!**/__tests__",
+    "!**/__fixtures__",
+    "!**/__mocks__",
+    "!**/.*"
+  ],
+  "scripts": {
+    "clean": "del-cli android/build lib",
+    "prepack": "node ../scripts/fetch-ios-sdk.js --package .",
+    "prepare": "bob build && node ../scripts/fetch-ios-sdk.js --package ."
+  },
+  "keywords": [
+    "react-native",
+    "ios",
+    "android",
+    "ezoic",
+    "cmp",
+    "consent",
+    "gdpr",
+    "tcf",
+    "gpp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ezoic/react-native-sdk.git",
+    "directory": "cmp"
+  },
+  "author": "Ezoic Inc <support@ezoic.com> (https://www.ezoic.com)",
+  "license": "SEE LICENSE IN LICENSE",
+  "bugs": {
+    "url": "https://github.com/ezoic/react-native-sdk/issues"
+  },
+  "homepage": "https://github.com/ezoic/react-native-sdk/tree/master/cmp#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "ezoic": {
+    "iosSdk": {
+      "version": "1.22.0",
+      "sha256": {
+        "EzoicCmpSDKBinary": "TODO-RELEASE"
+      }
+    }
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "codegenConfig": {
+    "name": "EzoicReactNativeCmpSdkSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.ezoic.reactnative.cmp"
+    }
+  }
+}

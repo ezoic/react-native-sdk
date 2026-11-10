@@ -31,4 +31,11 @@ describe('fetch-ios-sdk', () => {
       'EzoicCmpSDKBinary',
     ]);
   });
+
+  it('reads only the CMP framework pin of the CMP package', () => {
+    const pins = readPins(join(root, 'cmp'));
+    expect(pins.frameworks.map((f: { name: string }) => f.name)).toEqual([
+      'EzoicCmpSDKBinary',
+    ]);
+  });
 });

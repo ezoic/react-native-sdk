@@ -23,6 +23,8 @@ jest.mock('../NativeEzoicAds', () => ({
     presentConsentIfRequired: jest.fn(),
     presentConsentSettings: jest.fn(),
     isConsentRequired: jest.fn(),
+    isPrivacyOptionsRequired: jest.fn(),
+    setAppContent: jest.fn(),
     resetConsent: jest.fn(),
   },
 }));
@@ -40,6 +42,10 @@ const settingsMock = NativeEzoicAds.presentConsentSettings as jest.Mock<
 const requiredMock = NativeEzoicAds.isConsentRequired as jest.Mock<
   () => Promise<unknown>
 >;
+const privacyOptionsMock = NativeEzoicAds.isPrivacyOptionsRequired as jest.Mock<
+  () => Promise<unknown>
+>;
+const appContentMock = NativeEzoicAds.setAppContent as jest.Mock;
 const resetMock = NativeEzoicAds.resetConsent as jest.Mock;
 
 beforeEach(() => {
@@ -260,6 +266,39 @@ describe('EzoicAds.isConsentRequired', () => {
   it('maps an undefined native value to null', async () => {
     requiredMock.mockResolvedValue(undefined);
     await expect(EzoicAds.isConsentRequired()).resolves.toBeNull();
+  });
+});
+
+describe('EzoicAds.isPrivacyOptionsRequired', () => {
+  it.each([true, false, null])('resolves %s from native', async (value) => {
+    privacyOptionsMock.mockResolvedValue(value);
+    await expect(EzoicAds.isPrivacyOptionsRequired()).resolves.toBe(value);
+  });
+
+  it('maps an undefined native value to null', async () => {
+    privacyOptionsMock.mockResolvedValue(undefined);
+    await expect(EzoicAds.isPrivacyOptionsRequired()).resolves.toBeNull();
+  });
+});
+
+describe('EzoicAds.setAppContent', () => {
+  it('forwards language and genre', () => {
+    EzoicAds.setAppContent({ language: 'en', genre: 'News' });
+    expect(appContentMock).toHaveBeenCalledWith('en', 'News');
+  });
+
+  it('passes null for a missing field', () => {
+    EzoicAds.setAppContent({ genre: 'News' });
+    expect(appContentMock).toHaveBeenCalledWith(null, 'News');
+  });
+
+  it.each([
+    ['no argument', undefined],
+    ['an empty object', {}],
+    ['explicit nulls', { language: null, genre: null }],
+  ])('clears with %s', (_label, content) => {
+    EzoicAds.setAppContent(content);
+    expect(appContentMock).toHaveBeenCalledWith(null, null);
   });
 });
 

@@ -17,6 +17,12 @@ describe('package pins', () => {
     expect(cmp.version).toBe(ads.version);
   });
 
+  it('keeps package-lock.json at the package version', () => {
+    const lock = JSON.parse(read('package-lock.json'));
+    expect(lock.version).toBe(ads.version);
+    expect(lock.packages[''].version).toBe(ads.version);
+  });
+
   it('bundles the native iOS SDK of the package version', () => {
     expect(ads.ezoic.iosSdk.version).toBe(ads.version);
     expect(cmp.ezoic.iosSdk.version).toBe(cmp.version);

@@ -8,7 +8,19 @@ name: Publish to npm
 #
 # Prerequisites (one-time):
 #   1. Each package must already exist on npm (npm has no "pending publisher").
-#      Do a single manual bootstrap publish to create it, then never again.
+#      Create a new one with a single manual bootstrap publish of a throwaway
+#      version, never the real one (CI must publish that, with provenance).
+#      From a clean checkout of this repo, with a granular npm token that may
+#      bypass 2FA (a passkey can't publish from the CLI), e.g. for the CMP
+#      package:
+#        cd cmp
+#        npm version 0.0.1-bootstrap.0 --no-git-tag-version
+#        npm publish --access public --tag bootstrap --ignore-scripts
+#        npm deprecate @ezoic/react-native-cmp-sdk@0.0.1-bootstrap.0 \
+#          "Bootstrap placeholder; install 1.22.0 or later"
+#        git checkout package.json
+#      then never publish from a laptop again. The preflight step below fails
+#      the run, before anything is published, while a package is missing.
 #   2. On npmjs.com -> each package -> Settings -> Trusted Publisher, add a
 #      GitHub Actions publisher with EXACTLY:
 #        Organization or user: ezoic
@@ -60,6 +72,20 @@ jobs:
             fi
           done
 
+      # Publishing one package and then failing on the other would leave a
+      # half release, so check both exist (bootstrapped) before anything else.
+      - name: Preflight - both packages exist on npm
+        run: |
+          missing=0
+          for dir in cmp .; do
+            NAME="$(node -p "require('./$dir/package.json').name")"
+            if ! npm view "$NAME" name >/dev/null 2>&1; then
+              echo "::error::$NAME does not exist on npm yet. Bootstrap it (a throwaway 0.0.1-bootstrap.0, then npm deprecate) and add its Trusted Publisher; see the prerequisites at the top of .github/workflows/publish.yml"
+              missing=1
+            fi
+          done
+          exit $missing
+
       # Trusted publishing requires npm >= 11.5.1. Node 24 ships a compatible
       # npm, but pin to latest to be safe.
       - run: npm install -g npm@latest
@@ -67,9 +93,13 @@ jobs:
       - run: npm ci
 
       # `prepare` (run by `npm ci`) downloads the pinned native iOS SDK into
-      # ios/Frameworks; it must be in the tarball. The CMP package's own
-      # `prepare` / `prepack` fetch and verify its framework at publish.
+      # ios/Frameworks; it must be in the tarball. `--check` rejects anything
+      # not extracted from the pinned release assets.
       - run: node scripts/fetch-ios-sdk.js --check
+
+      - run: node scripts/fetch-ios-sdk.js --package cmp
+
+      - run: node scripts/fetch-ios-sdk.js --package cmp --check
 
       - run: npm run typecheck
 
@@ -83,7 +113,9 @@ jobs:
       # publish (one package out, the other failed) finishes the other.
       - name: Publish @ezoic/react-native-sdk and @ezoic/react-native-cmp-sdk
         run: |
-          for dir in . cmp; do
+          # The CMP first: the ads package's pod depends on it in apps that
+          # install both.
+          for dir in cmp .; do
             NAME="$(node -p "require('./$dir/package.json').name")"
             VERSION="$(node -p "require('./$dir/package.json').version")"
             if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then

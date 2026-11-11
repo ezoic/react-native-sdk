@@ -18,7 +18,8 @@
  *
  * EZOIC_IOS_SDK_ZIP_DIR=<dir> reads the zips from <dir> instead of the release,
  * checked against their `<zip>.sha256` sidecar files. For local builds of an
- * unreleased native SDK only; never publish from such a checkout.
+ * unreleased native SDK only. Such frameworks are stamped `local`, and
+ * `--check` (run before publishing) ignores the variable and rejects them.
  */
 'use strict';
 
@@ -29,6 +30,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PLACEHOLDER = 'TODO-RELEASE';
+/** Stamp sha256 of a framework extracted from EZOIC_IOS_SDK_ZIP_DIR; never a pin. */
+const LOCAL = 'local';
 const RELEASES =
   'https://github.com/ezoic/ezoic-swift-sdk-dist/releases/download';
 
@@ -83,8 +86,7 @@ function missingSlices(dir, framework) {
 }
 
 /** Where the zip comes from and the SHA-256 it must have. */
-function source(version, pin) {
-  const localDir = process.env.EZOIC_IOS_SDK_ZIP_DIR;
+function source(version, pin, localDir) {
   if (!localDir) {
     if (pin.sha256 === PLACEHOLDER) {
       throw new Error(
@@ -238,23 +240,30 @@ async function main() {
     return;
   }
 
+  const checking = flags.has('--check');
+  const localDir = checking ? '' : process.env.EZOIC_IOS_SDK_ZIP_DIR || '';
   for (const entry of frameworks) {
     const paths = frameworkPaths(packageDir, entry.name);
-    const src = source(version, entry);
+    const src = source(version, entry, localDir);
     const label = `${assetName(entry.name)} ${version}`;
 
-    if (flags.has('--check')) {
+    if (checking) {
       if (!isCurrent(paths, version, src.sha256)) {
         throw new Error(
-          `${rel(paths.framework)} is missing or not ${label} ` +
-            `(${src.sha256}); run \`node scripts/fetch-ios-sdk.js\``
+          `${rel(paths.framework)} is missing, locally built or not ${label} ` +
+            `(${src.sha256}); run \`node scripts/fetch-ios-sdk.js\` without ` +
+            'EZOIC_IOS_SDK_ZIP_DIR'
         );
       }
       console.log(`fetch-ios-sdk: ${label} present`);
       continue;
     }
 
-    if (!flags.has('--force') && isCurrent(paths, version, src.sha256)) {
+    if (
+      !src.local &&
+      !flags.has('--force') &&
+      isCurrent(paths, version, src.sha256)
+    ) {
       console.log(`fetch-ios-sdk: ${label} already present`);
       continue;
     }
@@ -273,12 +282,20 @@ async function main() {
         `SHA-256 mismatch for ${src.location}\n  expected ${src.sha256}\n  actual   ${actual}`
       );
     }
-    extract(zip, paths, version, src.sha256);
+    extract(zip, paths, version, src.local ? LOCAL : src.sha256);
     console.log(`fetch-ios-sdk: extracted ${label} to ${rel(paths.framework)}`);
   }
 }
 
-module.exports = { assetName, assetUrl, readPins, missingSlices };
+module.exports = {
+  assetName,
+  assetUrl,
+  readPins,
+  missingSlices,
+  isCurrent,
+  frameworkPaths,
+  LOCAL,
+};
 
 if (require.main === module) {
   main().catch((error) => {

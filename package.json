@@ -91,8 +91,8 @@
     "iosSdk": {
       "version": "1.22.0",
       "sha256": {
-        "EzoicAdsSDKBinary": "TODO-RELEASE",
-        "EzoicCmpSDKBinary": "TODO-RELEASE"
+        "EzoicAdsSDKBinary": "dd375c1989ace9aa960502a860644177646399084a852d9617b9bd6c2ad0e52a",
+        "EzoicCmpSDKBinary": "eec460f1eff7d82a46f412bf3fe63a5ed7ab90871d12375570927cba91ee0e40"
       },
       "podDependencies": {
         "PrebidMobile": "3.4.1",

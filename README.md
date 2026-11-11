@@ -47,8 +47,8 @@ cd ios && RCT_NEW_ARCH_ENABLED=1 pod install
 ```
 
 If your app also depends on [`@ezoic/react-native-cmp-sdk`](cmp/README.md)
-(not needed: this package already includes the CMP), keep both at the same
-version. This package's pod then takes `EzoicCmpSDK` from that package's pod
+(not needed: this package already includes the CMP), **keep both packages at
+the same version.** This package's pod then takes `EzoicCmpSDK` from that package's pod
 instead of its own copy, so the app links one.
 
 Add your Google Ad Manager application ID, `NSUserTrackingUsageDescription`
@@ -97,8 +97,9 @@ import { EzoicAds, EzoicBannerView } from '@ezoic/react-native-sdk';
 // dialog is presented automatically once this resolves (see "Privacy & consent").
 await EzoicAds.initialize({ domain: 'example.com' });
 
-// Optional privacy signals.
-EzoicAds.setGPPConsent('<GPP string>', '8');
+// Optional privacy signals. The GPP section depends on the user's US state
+// ('8' is California); see "Manual consent".
+EzoicAds.setGPPConsent('DBABBg~BVoAAACA.QA', '8');
 EzoicAds.setSubjectToCOPPA(false);
 
 // Label the current screen in reporting (see "Pageview labelling").
@@ -387,7 +388,8 @@ The promise always resolves (never rejects) with an `EzoicConsentOutcome`:
 - **`isPrivacyOptionsRequired()`** (1.22.0) resolves `true` in a GDPR region
   or a covered US state while the built-in CMP handles consent, `false`
   otherwise, and `null` until the init request and the US-state settings have
-  loaded. Use it to decide whether to show the privacy settings entry point.
+  loaded. Hide the privacy settings entry point only when it is `false`:
+  `null` means not known yet.
 - **`resetConsent()`** deletes the stored decision so the dialog shows again
   (ads re-gate until the user decides). The US choice is forgotten too, and
   the US notice shows again at the next launch.
@@ -397,12 +399,13 @@ The promise always resolves (never rejects) with an `EzoicConsentOutcome`:
 TCF policy requires users to be able to reopen the dialog and change or
 withdraw consent at any time, and US users must be able to change their "Do Not
 Sell" choice. Wire `presentConsentSettings()` to a menu item or button that is
-reachable while `isPrivacyOptionsRequired()` is `true`:
+reachable unless `isPrivacyOptionsRequired()` is `false` (`null` means not
+known yet, so keep the button):
 
 ```tsx
-const [showPrivacy, setShowPrivacy] = useState(false);
+const [showPrivacy, setShowPrivacy] = useState(true);
 useEffect(() => {
-  EzoicAds.isPrivacyOptionsRequired().then((v) => setShowPrivacy(v === true));
+  EzoicAds.isPrivacyOptionsRequired().then((v) => setShowPrivacy(v !== false));
 }, []);
 
 {showPrivacy && (
@@ -438,12 +441,25 @@ await EzoicAds.initialize({ domain: 'example.com', cmpEnabled: false });
 lasts for the current process only, so **call `setGDPRConsent` before
 `initialize` on every launch** (or set `cmpEnabled: false`). Otherwise each cold
 start begins with the built-in CMP in charge until your call lands: it can gate
-ad loads, show its dialog and write `IABTCF_*` keys. The SDK doesn't write your
-consent string to `IABTCF_*` keys for other SDKs, so your own CMP must do that.
+ad loads, show its dialog and write `IABTCF_*` keys.
+
+`setGDPRConsent` writes `IABTCF_gdprApplies` and `IABTCF_TCString` for other
+SDKs to read, and `setGPPConsent` writes `IABGPP_HDR_GppString` and
+`IABGPP_GppSID`. The other `IABTCF_*` / `IABGPP_*` keys (purpose and vendor
+consents, per-section keys) are still your CMP's job.
 
 ```tsx
 EzoicAds.setGDPRConsent(true, '<IAB TCF consent string>');
 await EzoicAds.initialize({ domain: 'example.com', cmpEnabled: false });
+```
+
+For a US user, pass the GPP string and its section ID. The section depends on
+the user's state (`'8'` California, `'9'` Virginia, `'10'` Colorado, …);
+`setGPPConsent` with a GPP string from your own CMP also keeps the built-in CMP
+from writing GPP keys:
+
+```tsx
+EzoicAds.setGPPConsent('DBABBg~BVoAAACA.QA', '8');
 ```
 
 ### Error code 5001

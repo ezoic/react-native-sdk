@@ -39,7 +39,7 @@ cd ios && pod install
 Both are version 1.22.0 for `@ezoic/react-native-cmp-sdk` 1.22.0.
 
 If your app also installs `@ezoic/react-native-sdk` (not recommended, see
-above), install the same version of both. On iOS the ads pod then uses this
+above), **keep both packages at the same version.** On iOS the ads pod then uses this
 package's framework instead of its own copy, and on Android Gradle resolves one
 `ezoic-cmp-sdk`.
 
@@ -51,11 +51,23 @@ import { EzoicCmp } from '@ezoic/react-native-cmp-sdk';
 // Once, early in app startup. Returns at once; your Ezoic settings load in
 // the background.
 EzoicCmp.initialize('example.com');
+```
 
-// From your first screen. Waits for the settings, then shows the TCF dialog
-// if this user must decide.
+After `initialize`, the CMP presents the consent dialog on its own when this
+user must decide (`autoPresentConsent: true`, the default), once your settings
+have loaded. To control the timing or read the outcome, turn that off and call
+`presentConsentIfRequired()` yourself, e.g. from your first screen:
+
+```tsx
+EzoicCmp.initialize('example.com', { autoPresentConsent: false });
+
+// Waits for the settings, then shows the TCF dialog if this user must decide.
 const outcome = await EzoicCmp.presentConsentIfRequired();
 ```
+
+If no screen is showing yet when `initialize` runs (a very early cold start),
+the automatic presentation is skipped; call `presentConsentIfRequired()` from
+your first screen.
 
 In covered US states the CMP shows its notice by itself; there is nothing to
 call. `presentConsentIfRequired()` resolves `notRequired` there.
@@ -63,13 +75,13 @@ call. `presentConsentIfRequired()` resolves `notRequired` there.
 ### Privacy choices button
 
 TCF requires a persistent way to reopen the dialog, and US users must be able to
-change their "Do Not Sell" choice. Show an entry point while
-`isPrivacyOptionsRequired()` is `true`:
+change their "Do Not Sell" choice. Show an entry point unless
+`isPrivacyOptionsRequired()` is `false` (`null` means not known yet, so keep it):
 
 ```tsx
-const [showPrivacy, setShowPrivacy] = useState(false);
+const [showPrivacy, setShowPrivacy] = useState(true);
 useEffect(() => {
-  EzoicCmp.isPrivacyOptionsRequired().then((v) => setShowPrivacy(v === true));
+  EzoicCmp.isPrivacyOptionsRequired().then((v) => setShowPrivacy(v !== false));
 }, []);
 
 {showPrivacy && (
@@ -107,14 +119,15 @@ US privacy settings in covered US states.
 | `cmpEnabled` | `true` | Run the CMP. Set `false` if you run your own CMP. |
 | `autoReadConsent` | `true` | `false` means the app manages consent itself: the CMP never presents or writes `IABTCF_*` / `IABGPP_*` keys. |
 | `debugEnabled` | `false` | Debug and info lines in the native log (Android logcat tag `EzoicCmp`, iOS subsystem `com.ezoic.cmp.sdk`). |
+| `autoPresentConsent` | `true` | Present the consent dialog (if required) right after `initialize`, as `@ezoic/react-native-sdk` does. |
 
 ## API
 
-- `EzoicCmp.initialize(domain, options?)` → `void`. Throws without a domain. Later calls are ignored.
+- `EzoicCmp.initialize(domain, options?)` → `void`. Throws without a domain. Later native calls are ignored; each call still presents if required unless `autoPresentConsent: false`.
 - `EzoicCmp.presentConsentIfRequired()` → `Promise<EzoicConsentOutcome>`
 - `EzoicCmp.presentConsentSettings()` → `Promise<EzoicConsentOutcome>`
 - `EzoicCmp.isConsentRequired()` → `Promise<boolean | null>`: `true` when GDPR applies and the CMP handles consent (also after the user decided), `false` otherwise, `null` until your settings have loaded or when none could be (refused domain, offline with no cache).
-- `EzoicCmp.isPrivacyOptionsRequired()` → `Promise<boolean | null>`: `true` in a GDPR region or a covered US state while the CMP handles consent, `null` while unknown.
+- `EzoicCmp.isPrivacyOptionsRequired()` → `Promise<boolean | null>`: `true` in a GDPR region or a covered US state while the CMP handles consent, `false` otherwise, `null` while unknown. Hide your entry point only on `false`.
 - `EzoicCmp.resetConsent()` → `void`: deletes the stored decision so the dialog shows again; the US choice is forgotten too and the US notice returns at next launch.
 
 ## License

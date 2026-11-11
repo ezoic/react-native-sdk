@@ -3,8 +3,8 @@
 Ezoic Ads SDK for React Native (Prebid + Google Ad Manager banner, native, interstitial, rewarded, outstream and instream video ads).
 
 A thin React Native (New Architecture) wrapper over the native Ezoic Ads SDKs
-for iOS (`EzoicAdsSDK`, bundled in this package) and Android
-(`com.ezoic.sdk:ezoic-ads-sdk`, via Maven Central). It exposes an imperative
+for iOS (`EzoicAdsSDK` and its built-in CMP `EzoicCmpSDK`, bundled in this
+package) and Android (`com.ezoic.sdk:ezoic-ads-sdk`, via Maven Central). It exposes an imperative
 `EzoicAds` TurboModule plus `EzoicBannerView`, `EzoicNativeAdView` and
 `EzoicOutstreamAdView` Fabric components, and the `EzoicInstreamAd` controller.
 
@@ -21,9 +21,10 @@ npm install @ezoic/react-native-sdk
 
 ### iOS
 
-The native `EzoicAdsSDK` binary framework is bundled inside this npm package
-(`@ezoic/react-native-sdk` 1.21.0 bundles `EzoicAdsSDK` 1.21.0), so CocoaPods
-does not download an `EzoicAdsSDK` pod and the CocoaPods trunk going read-only
+The native `EzoicAdsSDK` binary framework and the consent framework it links,
+`EzoicCmpSDK`, are bundled inside this npm package (`@ezoic/react-native-sdk`
+1.22.0 bundles both at 1.22.0), so CocoaPods does not download an `EzoicAdsSDK`
+pod and the CocoaPods trunk going read-only
 does not affect React Native apps. `pod install` still pulls its dependencies
 `PrebidMobile`, `Google-Mobile-Ads-SDK` and `AmazonPublisherServicesSDK` from
 CocoaPods as before; no `Podfile` changes are needed when upgrading. If
@@ -45,6 +46,11 @@ Then install pods:
 cd ios && RCT_NEW_ARCH_ENABLED=1 pod install
 ```
 
+If your app also depends on [`@ezoic/react-native-cmp-sdk`](cmp/README.md)
+(not needed: this package already includes the CMP), keep both at the same
+version. This package's pod then takes `EzoicCmpSDK` from that package's pod
+instead of its own copy, so the app links one.
+
 Add your Google Ad Manager application ID, `NSUserTrackingUsageDescription`
 and the SKAdNetwork IDs to `ios/<YourApp>/Info.plist`; see
 [iOS Setup](https://docs.ezoic.com/docs/mobileapps/react-native/#ios-setup).
@@ -59,8 +65,8 @@ or lists an identifier with uppercase letters (Apple ignores those).
 
 ### Android
 
-The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.21.0 from Maven Central,
-which brings in Google Mobile Ads (`play-services-ads`) 25.5.0 and Google's
+The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.22.0 from Maven Central,
+which brings in the Ezoic CMP (`com.ezoic.sdk:ezoic-cmp-sdk`), Google Mobile Ads (`play-services-ads`) 25.5.0 and Google's
 InMobi mediation adapter (InMobi bids in Google Ad Manager auctions; nothing to
 configure). The wrapper's Kotlin compiles against Google Mobile Ads 25.5.0, so
 the app's Kotlin Gradle plugin must be 2.2 or newer. React Native 0.87+
@@ -92,7 +98,7 @@ import { EzoicAds, EzoicBannerView } from '@ezoic/react-native-sdk';
 await EzoicAds.initialize({ domain: 'example.com' });
 
 // Optional privacy signals.
-EzoicAds.setGPPConsent('<GPP string>', '7');
+EzoicAds.setGPPConsent('<GPP string>', '8');
 EzoicAds.setSubjectToCOPPA(false);
 
 // Label the current screen in reporting (see "Pageview labelling").
@@ -268,16 +274,42 @@ resolves. `contentUrl` and `revenueUsd` are optional.
 | `debugEnabled` | `false` | Verbose native logging. |
 | `testMode` | `false` | Ezoic $0.00 test ads on debug builds / simulators. Disable before release. |
 | `autoTrackPageviews` | `true` | Record a pageview automatically on native screen changes. See [Pageview labelling](#pageview-labelling). |
-| `cmpEnabled` | `true` | Enable the built-in TCF CMP. Set `false` if you run your own CMP. |
+| `cmpEnabled` | `true` | Enable the built-in CMP (the TCF dialog in GDPR regions, the notice and "Do Not Sell" choice in covered US states). Set `false` if you run your own CMP. |
 | `autoPresentConsent` | `true` | Present the consent dialog (if required) right after `initialize` resolves. |
+| `appPaid` | unset | Whether your app is a paid app, sent to bidders as OpenRTB `app.paid`. Unset sends nothing. |
+
+### App content
+
+`EzoicAds.setAppContent({ language, genre })` describes your app's content to
+bidders (OpenRTB `app.content`) on every later auction, replacing any previous
+value. `language` is an ISO-639-1 two-letter code (`'en'`, `'de'`); other values
+are dropped with a native warning. `genre` is free text. Call it with no
+argument to clear it. It can be called before `initialize`.
+
+```tsx
+EzoicAds.setAppContent({ language: 'en', genre: 'News' });
+```
 
 ## Privacy & consent
 
-### Built-in CMP (GDPR / TCF 2.4)
+### Built-in CMP (GDPR / TCF 2.4 and US states)
 
 The native SDK includes an IAB TCF 2.4 consent management platform (CMP ID
 299). It is on by default (`cmpEnabled: true`) and only does anything for users
-in GDPR regions; elsewhere nothing is shown and ads load as before.
+in GDPR regions and, from 1.22.0, in the US states with consumer privacy laws;
+elsewhere nothing is shown and ads load as before.
+
+**US states (1.22.0).** For users in a covered US state the SDK shows a
+non-blocking notice card by itself, once per launch until the user chooses,
+with a "Do Not Sell My Information" choice. It writes the IAB GPP keys
+(`IABGPP_*`) other SDKs read. US privacy is opt-out, so ads never wait on it,
+and `presentConsentIfRequired()` resolves `notRequired` there. There is nothing
+to call; the [privacy settings button](#privacy-settings-button-required)
+reopens the US settings.
+
+**Not using Ezoic ads?** Ezoic publishers can use the same CMP on its own
+through [`@ezoic/react-native-cmp-sdk`](cmp/README.md). Use one package, not
+both: this one already includes it.
 
 > **If your app already runs another CMP (UMP, OneTrust, …) you _must_ set
 > `cmpEnabled: false`.** See [Using your own CMP](#using-your-own-cmp).
@@ -346,31 +378,49 @@ The promise always resolves (never rejects) with an `EzoicConsentOutcome`:
 | `decided` | The user chose `decision` (`acceptAll`, `rejectAll` or `custom`); the choice is saved |
 | `dismissed` | The dialog closed without a choice; ads stay gated for this session |
 | `alreadyPresenting` | A consent dialog is already on screen or being prepared |
-| `failed` | The dialog couldn't be shown. `code`/`message` come from the native error. `code: -1` with `message: 'No foreground Activity'` (on both platforms) is wrapper-side: there was no foreground Activity / view controller, native was not called and ads stay gated, so call `presentConsentIfRequired()` again once a screen is showing |
+| `failed` | The dialog couldn't be shown. `code`/`message` come from the native error (`1001` not initialized, `2001` network, `4001` render, `5002` invalid consent). `code: -1` with `message: 'No foreground Activity'` (on both platforms) is wrapper-side: there was no foreground Activity / view controller, native was not called and ads stay gated, so call `presentConsentIfRequired()` again once a screen is showing. Any other `code: -1` means the native error carried no code |
 
 - **`isConsentRequired()`** resolves `true` whenever GDPR applies and the
   built-in CMP is in charge (including after the user has decided), `false`
   otherwise, and `null` until the init request completes or when the server
   sent no consent information.
+- **`isPrivacyOptionsRequired()`** (1.22.0) resolves `true` in a GDPR region
+  or a covered US state while the built-in CMP handles consent, `false`
+  otherwise, and `null` until the init request and the US-state settings have
+  loaded. Use it to decide whether to show the privacy settings entry point.
 - **`resetConsent()`** deletes the stored decision so the dialog shows again
-  (ads re-gate until the user decides).
+  (ads re-gate until the user decides). The US choice is forgotten too, and
+  the US notice shows again at the next launch.
 
 ### Privacy settings button (required)
 
 TCF policy requires users to be able to reopen the dialog and change or
-withdraw consent at any time. Wire `presentConsentSettings()` to a menu item or
-button that is always reachable:
+withdraw consent at any time, and US users must be able to change their "Do Not
+Sell" choice. Wire `presentConsentSettings()` to a menu item or button that is
+reachable while `isPrivacyOptionsRequired()` is `true`:
 
 ```tsx
-<Button
-  title="Privacy settings"
-  onPress={() => EzoicAds.presentConsentSettings()}
-/>
+const [showPrivacy, setShowPrivacy] = useState(false);
+useEffect(() => {
+  EzoicAds.isPrivacyOptionsRequired().then((v) => setShowPrivacy(v === true));
+}, []);
+
+{showPrivacy && (
+  <Button
+    title="Privacy settings"
+    onPress={() => EzoicAds.presentConsentSettings()}
+  />
+)}
 ```
 
-It reopens the dialog with the user's stored choices in GDPR regions and
-resolves `notRequired` elsewhere, with `cmpEnabled: false`, or when another CMP
-is present.
+`presentConsentSettings()` is region-aware (1.22.0):
+
+- In a GDPR region it reopens the TCF dialog with the user's stored choices.
+- In a covered US state it opens the US privacy settings and resolves
+  `decided` with `acceptAll` (not opted out) or `rejectAll` (opted out), or
+  `dismissed` when closed without saving.
+- Elsewhere, with `cmpEnabled: false`, or when another CMP is present it
+  resolves `notRequired`.
 
 ### Using your own CMP
 
@@ -495,7 +545,9 @@ an unlabelled pageview.
 - `EzoicAds.presentConsentIfRequired()` → `Promise<EzoicConsentOutcome>`
 - `EzoicAds.presentConsentSettings()` → `Promise<EzoicConsentOutcome>`
 - `EzoicAds.isConsentRequired()` → `Promise<boolean | null>`
+- `EzoicAds.isPrivacyOptionsRequired()` → `Promise<boolean | null>` (1.22.0)
 - `EzoicAds.resetConsent()` → `void`
+- `EzoicAds.setAppContent({ language?, genre? }?)` → `void` (1.22.0)
 - `EzoicErrorCode.consentRequired` = `5001`
 - `<EzoicBannerView adUnitIdentifier size collapseOnNoFill onSizeChange onLoad onError onImpression onClick onOpen onClose />`
 - `<EzoicNativeAdView adUnitIdentifier onLoad onError onImpression onClick onOpen onClose />`
@@ -505,6 +557,21 @@ an unlabelled pageview.
   - `.getNextAdTagUrl()` → `Promise<string | null>`
   - `.reportImpression({ revenueUsd? })` → `Promise<void>`
   - `.destroy()` → `Promise<void>`
+
+## Changes in 1.22.0 (unreleased)
+
+- Native SDK 1.22.0. iOS bundles two frameworks, `EzoicAdsSDK` and the CMP
+  `EzoicCmpSDK`; no Podfile changes are needed.
+- US-state privacy: the built-in CMP shows a notice and a "Do Not Sell" choice
+  in covered US states and writes the IAB GPP keys. Ads never wait on it.
+- `presentConsentSettings()` opens the US privacy settings in covered US states.
+- New `isPrivacyOptionsRequired()`, `setAppContent({ language, genre })` and the
+  `appPaid` configuration field.
+- New package [`@ezoic/react-native-cmp-sdk`](cmp/README.md): the same CMP for
+  Ezoic publishers whose app doesn't use Ezoic ads.
+- No breaking changes for React Native apps. (Native apps reading
+  `ConsentOutcome.Failed`'s error code need a cast from 1.22.0; this package
+  does that and keeps `failed`'s `code` / `message`.)
 
 ## License
 

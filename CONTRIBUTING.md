@@ -4,6 +4,43 @@ Contributions are always welcome, no matter how large or small!
 
 We want this community to be friendly and respectful to each other. Please follow it in all your interactions with the project. Before contributing, please read the [code of conduct](./CODE_OF_CONDUCT.md).
 
+## Packages in this repo
+
+- `@ezoic/react-native-sdk` (the repo root): the ads SDK.
+- `@ezoic/react-native-cmp-sdk` (`cmp/`): the standalone CMP. It has no
+  dependencies of its own; it uses the root's dev toolchain. Root `npm run
+  typecheck`, `npm run lint` and `npm test` cover both packages.
+
+Both are released together at the same version from one `vX.Y.Z` tag
+(`.github/workflows/publish.yml`). Use npm and Node 24 (`.nvmrc`): `npm ci` at
+the root, then `node scripts/fetch-ios-sdk.js --package cmp` for the CMP
+package's iOS framework.
+
+### Native SDK pins
+
+- Android: `android/build.gradle` (`ezoic-ads-sdk`) and
+  `cmp/android/build.gradle` (`ezoic-cmp-sdk`).
+- iOS: `ezoic.iosSdk` in `package.json` and `cmp/package.json`: the native
+  version and the sha256 of each bundled `-cocoapods` XCFramework zip from the
+  `ezoic-swift-sdk-dist` GitHub release. After bumping `version`, fill the
+  sha256s from the release:
+
+  ```sh
+  node scripts/fetch-ios-sdk.js --pin
+  node scripts/fetch-ios-sdk.js --package cmp --pin
+  ```
+
+  `src/__tests__/packaging.test.ts` checks the two packages agree.
+
+### Building an app with the packages
+
+`scripts/smoke-app.sh <ads|cmp|both> <workdir> [android] [ios]` packs the
+packages, creates a React Native app that installs them, builds it, and reports
+how many copies of the native CMP the app contains (expected: one). For
+unreleased native builds, set `EZOIC_IOS_SDK_ZIP_DIR` to a directory with the
+`-cocoapods` zips and their `.sha256` files, and `EZOIC_SMOKE_MAVEN_LOCAL=1` to
+resolve Android artifacts from the local Maven repository.
+
 ## Development workflow
 
 This project is a monorepo managed using [Yarn workspaces](https://yarnpkg.com/features/workspaces). It contains the following packages:

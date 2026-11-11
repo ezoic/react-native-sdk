@@ -32,6 +32,7 @@ const resetMock = NativeEzoicCmp.resetConsent as jest.Mock;
 
 beforeEach(() => {
   jest.clearAllMocks();
+  presentMock.mockResolvedValue({ type: 'notRequired' });
 });
 
 describe('EzoicCmp.initialize', () => {
@@ -68,6 +69,38 @@ describe('EzoicCmp.initialize', () => {
   it('throws synchronously without a domain', () => {
     expect(() => EzoicCmp.initialize('')).toThrow('domain');
     expect(initMock).not.toHaveBeenCalled();
+    expect(presentMock).not.toHaveBeenCalled();
+  });
+
+  it('presents the consent dialog if required after initializing, by default', () => {
+    EzoicCmp.initialize('example.com');
+    expect(presentMock).toHaveBeenCalledTimes(1);
+    expect(initMock.mock.invocationCallOrder[0]).toBeLessThan(
+      presentMock.mock.invocationCallOrder[0] ?? 0
+    );
+  });
+
+  it('presents with autoPresentConsent: true and keeps it out of the native config', () => {
+    EzoicCmp.initialize('example.com', { autoPresentConsent: true });
+    expect(presentMock).toHaveBeenCalledTimes(1);
+    expect(initMock).toHaveBeenCalledWith('example.com', {});
+  });
+
+  it('does not present with autoPresentConsent: false', () => {
+    EzoicCmp.initialize('example.com', { autoPresentConsent: false });
+    expect(presentMock).not.toHaveBeenCalled();
+  });
+
+  it('presents again on a repeat initialize (JS reload), as the ads wrapper does', () => {
+    EzoicCmp.initialize('example.com');
+    EzoicCmp.initialize('example.com');
+    expect(presentMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('swallows a failing automatic presentation', async () => {
+    presentMock.mockRejectedValue(new Error('bridge down'));
+    expect(() => EzoicCmp.initialize('example.com')).not.toThrow();
+    await new Promise((resolve) => setImmediate(resolve));
   });
 });
 

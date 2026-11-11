@@ -28,15 +28,26 @@ export const EzoicCmp = {
   /**
    * Starts the CMP for your Ezoic domain. Returns at once; the publisher
    * settings load in the background, and `presentConsentIfRequired()` waits
-   * for them. Later calls are ignored. A domain that isn't an Ezoic
+   * for them. Later native calls are ignored. A domain that isn't an Ezoic
    * publisher's leaves the CMP off: presents resolve `failed` with code 1001
    * and nothing is written.
+   *
+   * Unless `autoPresentConsent: false`, it then calls
+   * `presentConsentIfRequired()` once on your behalf, also on a repeat call
+   * (a JS reload while native is still initialized), as `EzoicAds.initialize`
+   * does. Its outcome is discarded; call `presentConsentIfRequired()`
+   * yourself to read one. With no screen showing yet it does nothing.
    */
   initialize(domain: string, options?: EzoicCmpOptions): void {
     if (!domain) {
       throw new Error('EzoicCmp.initialize requires a non-empty `domain`.');
     }
     NativeEzoicCmp.initialize(domain, normalizeCmpOptions(options));
+    // Native runs module calls in order, so this present follows initialize
+    // and waits for the settings it loads.
+    if (options?.autoPresentConsent !== false) {
+      NativeEzoicCmp.presentConsentIfRequired().catch(() => {});
+    }
   },
   /**
    * Shows the consent dialog if this user must decide (GDPR applies, no valid

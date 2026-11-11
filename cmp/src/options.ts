@@ -11,6 +11,11 @@ export interface EzoicCmpOptions {
   autoReadConsent?: boolean;
   /** Also log debug and info lines natively. Default `false`. */
   debugEnabled?: boolean;
+  /**
+   * Present the consent dialog (if required) right after `initialize`.
+   * Default `true`. Not sent to native: the wrapper does the presenting.
+   */
+  autoPresentConsent?: boolean;
 }
 
 /** Forwards only the options that are set, so native defaults apply to the rest. */

@@ -21,8 +21,15 @@ jobs:
       # `prepare` builds lib/ and downloads the bundled iOS SDK.
       - run: npm ci
 
+      # @ezoic/react-native-cmp-sdk (cmp/) uses the root's dev dependencies;
+      # only its iOS framework needs fetching.
+      - run: node scripts/fetch-ios-sdk.js --package cmp
+
       - run: node scripts/fetch-ios-sdk.js --check
 
+      - run: node scripts/fetch-ios-sdk.js --package cmp --check
+
+      # Typecheck, lint and tests cover both packages.
       - run: npm run typecheck
 
       - run: npm run lint
@@ -31,16 +38,31 @@ jobs:
 
       - run: npm pack --pack-destination "$RUNNER_TEMP"
 
-      - name: Verify the tarball bundles the iOS SDK
+      - run: npm pack --pack-destination "$RUNNER_TEMP"
+        working-directory: cmp
+
+      - name: Verify the tarballs bundle the iOS SDK
         run: |
-          FILES="$(tar -tzf "$RUNNER_TEMP"/ezoic-react-native-sdk-*.tgz)"
-          XCFRAMEWORK=package/ios/Frameworks/EzoicAdsSDKBinary.xcframework
-          for f in \
-            "$XCFRAMEWORK/Info.plist" \
-            "$XCFRAMEWORK/ios-arm64/EzoicAdsSDKBinary.framework/EzoicAdsSDKBinary" \
-            "$XCFRAMEWORK/ios-arm64_x86_64-simulator/EzoicAdsSDKBinary.framework/EzoicAdsSDKBinary"; do
-            if ! grep -qxF "$f" <<< "$FILES"; then
-              echo "::error::Tarball is missing $f"
-              exit 1
-            fi
-          done
+          check() {
+            local tarball="$1"; shift
+            local files
+            files="$(tar -tzf "$tarball")"
+            for f in "$@"; do
+              if ! grep -qxF "$f" <<< "$files"; then
+                echo "::error::$(basename "$tarball") is missing $f"
+                exit 1
+              fi
+            done
+          }
+          slices() {
+            local framework="$1"
+            local dir="package/ios/Frameworks/$framework.xcframework"
+            echo "$dir/Info.plist"
+            echo "$dir/ios-arm64/$framework.framework/$framework"
+            echo "$dir/ios-arm64_x86_64-simulator/$framework.framework/$framework"
+          }
+          # Paths have no spaces, so word splitting is safe here.
+          check "$RUNNER_TEMP"/ezoic-react-native-sdk-*.tgz \
+            $(slices EzoicAdsSDKBinary) $(slices EzoicCmpSDKBinary)
+          check "$RUNNER_TEMP"/ezoic-react-native-cmp-sdk-*.tgz \
+            $(slices EzoicCmpSDKBinary) package/lib/module/index.js package/EzoicReactNativeCmpSdk.podspec

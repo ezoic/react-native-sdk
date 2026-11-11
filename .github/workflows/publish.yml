@@ -1,14 +1,15 @@
 name: Publish to npm
 
-# Publishes @ezoic/react-native-sdk to npm using npm Trusted Publishing (OIDC).
+# Publishes @ezoic/react-native-sdk (repo root) and @ezoic/react-native-cmp-sdk
+# (cmp/) to npm from one tag, using npm Trusted Publishing (OIDC).
 # No NPM_TOKEN is involved: GitHub Actions proves its identity to npm with a
 # short-lived OIDC token, which npm verifies against the Trusted Publisher
 # configured for this package on npmjs.com.
 #
 # Prerequisites (one-time):
-#   1. The package must already exist on npm (npm has no "pending publisher").
+#   1. Each package must already exist on npm (npm has no "pending publisher").
 #      Do a single manual bootstrap publish to create it, then never again.
-#   2. On npmjs.com -> the package -> Settings -> Trusted Publisher, add a
+#   2. On npmjs.com -> each package -> Settings -> Trusted Publisher, add a
 #      GitHub Actions publisher with EXACTLY:
 #        Organization or user: ezoic
 #        Repository:           react-native-sdk
@@ -17,7 +18,8 @@ name: Publish to npm
 #      All fields are case-sensitive; a mismatch fails publish with E404.
 #      The job below sets `environment: release` so the OIDC claim matches.
 #
-# Release: bump the version, then push a matching SemVer tag, e.g.
+# Release: bump both versions (package.json, cmp/package.json), then push a
+# matching SemVer tag, e.g.
 #   git tag v1.0.0 && git push origin v1.0.0
 # or run this workflow manually from the Actions tab (workflow_dispatch).
 
@@ -44,17 +46,19 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           # Caching is intentionally disabled for release builds.
 
-      # Fail fast if a tag push doesn't match package.json, so we never try to
-      # (re)publish a mismatched or already-published version.
-      - name: Verify tag matches package.json version
+      # Fail fast if a tag push doesn't match both package.json versions, so we
+      # never try to publish a mismatched version.
+      - name: Verify tag matches both package versions
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          PKG_VERSION="$(node -p "require('./package.json').version")"
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME ($TAG_VERSION) does not match package.json version $PKG_VERSION"
-            exit 1
-          fi
+          for pkg in package.json cmp/package.json; do
+            PKG_VERSION="$(node -p "require('./$pkg').version")"
+            if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME ($TAG_VERSION) does not match $pkg version $PKG_VERSION"
+              exit 1
+            fi
+          done
 
       # Trusted publishing requires npm >= 11.5.1. Node 24 ships a compatible
       # npm, but pin to latest to be safe.
@@ -63,7 +67,8 @@ jobs:
       - run: npm ci
 
       # `prepare` (run by `npm ci`) downloads the pinned native iOS SDK into
-      # ios/Frameworks; it must be in the tarball.
+      # ios/Frameworks; it must be in the tarball. The CMP package's own
+      # `prepare` / `prepack` fetch and verify its framework at publish.
       - run: node scripts/fetch-ios-sdk.js --check
 
       - run: npm run typecheck
@@ -74,4 +79,16 @@ jobs:
       # `prepare` script builds lib/ during publish.
       # Provenance is generated automatically for OIDC publishes from a public
       # repo; the flag makes the intent explicit.
-      - run: npm publish --provenance --access public
+      # A version already on npm is skipped, so re-running after a partial
+      # publish (one package out, the other failed) finishes the other.
+      - name: Publish @ezoic/react-native-sdk and @ezoic/react-native-cmp-sdk
+        run: |
+          for dir in . cmp; do
+            NAME="$(node -p "require('./$dir/package.json').name")"
+            VERSION="$(node -p "require('./$dir/package.json').version")"
+            if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+              echo "$NAME@$VERSION is already on npm; skipping"
+              continue
+            fi
+            (cd "$dir" && npm publish --provenance --access public)
+          done

@@ -19,11 +19,26 @@ end
 
 # EzoicAdsSDKBinary links against EzoicCmpSDKBinary, so the app needs exactly one
 # copy of it. CocoaPods rejects two pods vendoring the same framework, and React
-# Native autolinks only the app's direct dependencies, so this package can't
-# require the CMP package: when the app's Podfile has the CMP pod too, depend on
-# it for the CMP framework; otherwise vendor it here.
-podfile = defined?(Pod::Config) ? Pod::Config.instance.podfile : nil
-uses_cmp_pod = !podfile.nil? && podfile.dependencies.any? { |dep| dep.root_name == cmp_pod }
+# Native autolinks only the app's own dependencies, so this package can't
+# require the CMP package. When the app depends on the CMP package too, its pod
+# (autolinked the same way) provides the framework and this pod depends on it;
+# otherwise this pod vendors it. RN evaluates podspecs while the Podfile is still
+# loading, so read the app's package.json (the first one above the Podfile's
+# directory), with the same dependency keys RN's autolinking reads.
+app_depends_on = lambda do |name|
+  return false unless defined?(Pod::Config)
+  dir = Pod::Config.instance.installation_root.to_s
+  until File.exist?(File.join(dir, "package.json"))
+    parent = File.dirname(dir)
+    return false if parent == dir
+    dir = parent
+  end
+  app = JSON.parse(File.read(File.join(dir, "package.json")))
+  %w[dependencies peerDependencies devDependencies].any? { |key| (app[key] || {}).key?(name) }
+rescue JSON::ParserError
+  false
+end
+uses_cmp_pod = app_depends_on.call("@ezoic/react-native-cmp-sdk")
 
 Pod::Spec.new do |s|
   s.name         = "EzoicReactNativeSdk"

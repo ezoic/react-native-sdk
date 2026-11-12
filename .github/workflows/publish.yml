@@ -17,10 +17,11 @@ name: Publish to npm
 #        npm version 0.0.1-bootstrap.0 --no-git-tag-version
 #        npm publish --access public --tag bootstrap --ignore-scripts
 #        npm deprecate @ezoic/react-native-cmp-sdk@0.0.1-bootstrap.0 \
-#          "Bootstrap placeholder; install 1.22.0 or later"
+#          "Bootstrap placeholder; install 1.22.2 or later"
 #        git checkout package.json
-#      then never publish from a laptop again. The preflight step below fails
-#      the run, before anything is published, while a package is missing.
+#      then never publish from a laptop again. While the CMP package is
+#      missing, the preflight step below publishes the ads package alone; a
+#      missing ads package fails the run before anything is published.
 #   2. On npmjs.com -> each package -> Settings -> Trusted Publisher, add a
 #      GitHub Actions publisher with EXACTLY:
 #        Organization or user: ezoic
@@ -72,19 +73,28 @@ jobs:
             fi
           done
 
-      # Publishing one package and then failing on the other would leave a
-      # half release, so check both exist (bootstrapped) before anything else.
-      - name: Preflight - both packages exist on npm
+      # A package that doesn't exist on npm yet can't be published by CI (npm
+      # has no "pending publisher"). The ads package must exist. The CMP package
+      # is optional: the ads package doesn't depend on it, so while it is
+      # missing the release publishes the ads package alone and warns. Once the
+      # CMP package is bootstrapped, re-run this workflow on the same tag
+      # (`gh workflow run publish.yml --ref vX.Y.Z`) to publish it; the ads
+      # package is then skipped as already published.
+      - name: Preflight - packages exist on npm
+        id: preflight
         run: |
-          missing=0
-          for dir in cmp .; do
-            NAME="$(node -p "require('./$dir/package.json').name")"
-            if ! npm view "$NAME" name >/dev/null 2>&1; then
-              echo "::error::$NAME does not exist on npm yet. Bootstrap it (a throwaway 0.0.1-bootstrap.0, then npm deprecate) and add its Trusted Publisher; see the prerequisites at the top of .github/workflows/publish.yml"
-              missing=1
-            fi
-          done
-          exit $missing
+          ADS="$(node -p "require('./package.json').name")"
+          CMP="$(node -p "require('./cmp/package.json').name")"
+          if ! npm view "$ADS" name >/dev/null 2>&1; then
+            echo "::error::$ADS does not exist on npm; see the prerequisites at the top of .github/workflows/publish.yml"
+            exit 1
+          fi
+          if npm view "$CMP" name >/dev/null 2>&1; then
+            echo "dirs=cmp ." >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::$CMP does not exist on npm yet, so this run publishes $ADS only. Bootstrap $CMP and add its Trusted Publisher (prerequisites at the top of .github/workflows/publish.yml), then re-run this workflow on the same tag."
+            echo "dirs=." >> "$GITHUB_OUTPUT"
+          fi
 
       # Trusted publishing requires npm >= 11.5.1. Node 24 ships a compatible
       # npm, but pin to latest to be safe.
@@ -112,10 +122,12 @@ jobs:
       # A version already on npm is skipped, so re-running after a partial
       # publish (one package out, the other failed) finishes the other.
       - name: Publish @ezoic/react-native-sdk and @ezoic/react-native-cmp-sdk
+        env:
+          DIRS: ${{ steps.preflight.outputs.dirs }}
         run: |
           # The CMP first: the ads package's pod depends on it in apps that
           # install both.
-          for dir in cmp .; do
+          for dir in $DIRS; do
             NAME="$(node -p "require('./$dir/package.json').name")"
             VERSION="$(node -p "require('./$dir/package.json').version")"
             if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then

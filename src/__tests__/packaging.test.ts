@@ -23,9 +23,11 @@ describe('package pins', () => {
     expect(lock.packages[''].version).toBe(ads.version);
   });
 
-  it('bundles the native iOS SDK of the package version', () => {
-    expect(ads.ezoic.iosSdk.version).toBe(ads.version);
-    expect(cmp.ezoic.iosSdk.version).toBe(cmp.version);
+  // The Android and iOS SDKs are versioned separately (Android 1.22.2 with
+  // iOS 1.23.1), so neither has to match the package version, but both
+  // packages must pin the same native release on each platform.
+  it('bundles the same native iOS SDK release in both packages', () => {
+    expect(cmp.ezoic.iosSdk.version).toBe(ads.ezoic.iosSdk.version);
   });
 
   it('bundles both frameworks in the ads package and only the CMP in the CMP package', () => {
@@ -51,13 +53,17 @@ describe('package pins', () => {
     );
   });
 
-  it('pins the same native Android SDK version as the iOS one', () => {
-    expect(read('android', 'build.gradle')).toContain(
-      `"com.ezoic.sdk:ezoic-ads-sdk:${ads.ezoic.iosSdk.version}"`
+  it('pins the same native Android SDK release in both packages', () => {
+    const version = (gradle: string, artifact: string) =>
+      new RegExp(`"com\\.ezoic\\.sdk:${artifact}:([^"]+)"`).exec(gradle)?.[1];
+    const adsAndroid = version(
+      read('android', 'build.gradle'),
+      'ezoic-ads-sdk'
     );
-    expect(read('cmp', 'android', 'build.gradle')).toContain(
-      `"com.ezoic.sdk:ezoic-cmp-sdk:${cmp.ezoic.iosSdk.version}"`
-    );
+    expect(adsAndroid).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(
+      version(read('cmp', 'android', 'build.gradle'), 'ezoic-cmp-sdk')
+    ).toBe(adsAndroid);
   });
 });
 

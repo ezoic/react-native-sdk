@@ -68,5 +68,5 @@ dependencies {
   // Native Ezoic CMP (Maven Central). @ezoic/react-native-sdk gets the same
   // artifact through com.ezoic.sdk:ezoic-ads-sdk, so an app with both packages
   // resolves one copy.
-  implementation "com.ezoic.sdk:ezoic-cmp-sdk:1.22.0"
+  implementation "com.ezoic.sdk:ezoic-cmp-sdk:1.22.2"
 }

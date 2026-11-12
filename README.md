@@ -23,7 +23,7 @@ npm install @ezoic/react-native-sdk
 
 The native `EzoicAdsSDK` binary framework and the consent framework it links,
 `EzoicCmpSDK`, are bundled inside this npm package (`@ezoic/react-native-sdk`
-1.22.0 bundles both at 1.22.0), so CocoaPods does not download an `EzoicAdsSDK`
+1.22.2 bundles both at 1.23.1), so CocoaPods does not download an `EzoicAdsSDK`
 pod and the CocoaPods trunk going read-only
 does not affect React Native apps. `pod install` still pulls its dependencies
 `PrebidMobile`, `Google-Mobile-Ads-SDK` and `AmazonPublisherServicesSDK` from
@@ -65,7 +65,7 @@ or lists an identifier with uppercase letters (Apple ignores those).
 
 ### Android
 
-The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.22.0 from Maven Central,
+The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.22.2 from Maven Central,
 which brings in the Ezoic CMP (`com.ezoic.sdk:ezoic-cmp-sdk`), Google Mobile Ads (`play-services-ads`) 25.5.0 and Google's
 InMobi mediation adapter (InMobi bids in Google Ad Manager auctions; nothing to
 configure). The wrapper's Kotlin compiles against Google Mobile Ads 25.5.0, so
@@ -297,10 +297,10 @@ EzoicAds.setAppContent({ language: 'en', genre: 'News' });
 
 The native SDK includes an IAB TCF 2.4 consent management platform (CMP ID
 299). It is on by default (`cmpEnabled: true`) and only does anything for users
-in GDPR regions and, from 1.22.0, in the US states with consumer privacy laws;
+in GDPR regions and, from 1.22.2, in the US states with consumer privacy laws;
 elsewhere nothing is shown and ads load as before.
 
-**US states (1.22.0).** For users in a covered US state the SDK shows a
+**US states (1.22.2).** For users in a covered US state the SDK shows a
 non-blocking notice card by itself, once per launch until the user chooses,
 with a "Do Not Sell My Information" choice. It writes the IAB GPP keys
 (`IABGPP_*`) other SDKs read. US privacy is opt-out, so ads never wait on it,
@@ -385,7 +385,7 @@ The promise always resolves (never rejects) with an `EzoicConsentOutcome`:
   built-in CMP is in charge (including after the user has decided), `false`
   otherwise, and `null` until the init request completes or when the server
   sent no consent information.
-- **`isPrivacyOptionsRequired()`** (1.22.0) resolves `true` in a GDPR region
+- **`isPrivacyOptionsRequired()`** (1.22.2) resolves `true` in a GDPR region
   or a covered US state while the built-in CMP handles consent, `false`
   otherwise, and `null` until the init request and the US-state settings have
   loaded. Hide the privacy settings entry point only when it is `false`:
@@ -416,7 +416,7 @@ useEffect(() => {
 )}
 ```
 
-`presentConsentSettings()` is region-aware (1.22.0):
+`presentConsentSettings()` is region-aware (1.22.2):
 
 - In a GDPR region it reopens the TCF dialog with the user's stored choices.
 - In a covered US state it opens the US privacy settings and resolves
@@ -561,9 +561,9 @@ an unlabelled pageview.
 - `EzoicAds.presentConsentIfRequired()` → `Promise<EzoicConsentOutcome>`
 - `EzoicAds.presentConsentSettings()` → `Promise<EzoicConsentOutcome>`
 - `EzoicAds.isConsentRequired()` → `Promise<boolean | null>`
-- `EzoicAds.isPrivacyOptionsRequired()` → `Promise<boolean | null>` (1.22.0)
+- `EzoicAds.isPrivacyOptionsRequired()` → `Promise<boolean | null>` (1.22.2)
 - `EzoicAds.resetConsent()` → `void`
-- `EzoicAds.setAppContent({ language?, genre? }?)` → `void` (1.22.0)
+- `EzoicAds.setAppContent({ language?, genre? }?)` → `void` (1.22.2)
 - `EzoicErrorCode.consentRequired` = `5001`
 - `<EzoicBannerView adUnitIdentifier size collapseOnNoFill onSizeChange onLoad onError onImpression onClick onOpen onClose />`
 - `<EzoicNativeAdView adUnitIdentifier onLoad onError onImpression onClick onOpen onClose />`
@@ -574,17 +574,26 @@ an unlabelled pageview.
   - `.reportImpression({ revenueUsd? })` → `Promise<void>`
   - `.destroy()` → `Promise<void>`
 
-## Changes in 1.22.0 (unreleased)
+## Changes in 1.22.2
 
-- Native SDK 1.22.0. iOS bundles two frameworks, `EzoicAdsSDK` and the CMP
-  `EzoicCmpSDK`; no Podfile changes are needed.
+The first release since 1.21.0; React Native had no 1.22.0 or 1.22.1.
+
+- Native SDK: Android 1.22.2, iOS 1.23.1. iOS bundles two frameworks,
+  `EzoicAdsSDK` and the CMP `EzoicCmpSDK`; no Podfile changes are needed.
+- Banners loaded without a size get the largest standard size that fits the
+  banner's width, not the screen's. Before, a banner narrower than a tablet or
+  landscape screen could get a 728x90 it could not show in full.
+- Android: a header-bidding banner win keeps its size (300x250 stays 300x250)
+  instead of shrinking to about 1x1 inside `EzoicBannerView` and
+  `EzoicOutstreamAdView`.
 - US-state privacy: the built-in CMP shows a notice and a "Do Not Sell" choice
   in covered US states and writes the IAB GPP keys. Ads never wait on it.
 - `presentConsentSettings()` opens the US privacy settings in covered US states.
 - New `isPrivacyOptionsRequired()`, `setAppContent({ language, genre })` and the
   `appPaid` configuration field.
 - New package [`@ezoic/react-native-cmp-sdk`](cmp/README.md): the same CMP for
-  Ezoic publishers whose app doesn't use Ezoic ads.
+  Ezoic publishers whose app doesn't use Ezoic ads. It follows separately; it
+  is not on npm yet. Apps using `@ezoic/react-native-sdk` don't need it.
 - No breaking changes for React Native apps. (Native apps reading
   `ConsentOutcome.Failed`'s error code need a cast from 1.22.0; this package
   does that and keeps `failed`'s `code` / `message`.)

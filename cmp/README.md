@@ -36,7 +36,8 @@ cd ios && pod install
 - **Android:** the package depends on `com.ezoic.sdk:ezoic-cmp-sdk` from Maven
   Central.
 
-Both are version 1.22.0 for `@ezoic/react-native-cmp-sdk` 1.22.0.
+Android uses `ezoic-cmp-sdk` 1.22.2 and iOS bundles `EzoicCmpSDK` 1.23.1 in
+`@ezoic/react-native-cmp-sdk` 1.22.2.
 
 If your app also installs `@ezoic/react-native-sdk` (not recommended, see
 above), **keep both packages at the same version.** On iOS the ads pod then uses this

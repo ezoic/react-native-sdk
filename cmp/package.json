@@ -1,6 +1,6 @@
 {
   "name": "@ezoic/react-native-cmp-sdk",
-  "version": "1.22.0",
+  "version": "1.22.2",
   "description": "Ezoic consent management for React Native apps of Ezoic publishers: IAB TCF 2.4 dialog in GDPR regions and US-state privacy (GPP) notice and Do Not Sell choice.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -66,9 +66,9 @@
   },
   "ezoic": {
     "iosSdk": {
-      "version": "1.22.0",
+      "version": "1.23.1",
       "sha256": {
-        "EzoicCmpSDKBinary": "eec460f1eff7d82a46f412bf3fe63a5ed7ab90871d12375570927cba91ee0e40"
+        "EzoicCmpSDKBinary": "c5beac97eec838ab4c39d9c02c0352fd4473a1d6ddc2ac18bbdd5fc01b236d6d"
       }
     }
   },

@@ -18,6 +18,7 @@ export function normalizeConfig(config: EzoicConfig): EzoicConfig {
   if (config.cmpEnabled !== undefined) out.cmpEnabled = config.cmpEnabled;
   if (config.autoPresentConsent !== undefined)
     out.autoPresentConsent = config.autoPresentConsent;
+  if (config.appPaid !== undefined) out.appPaid = config.appPaid;
   return out;
 }
 

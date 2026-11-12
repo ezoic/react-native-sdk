@@ -32,6 +32,19 @@ describe('normalizeConfig', () => {
       autoPresentConsent: false,
     });
   });
+  it('keeps appPaid, including false', () => {
+    expect(normalizeConfig({ domain: 'x.com', appPaid: false })).toEqual({
+      domain: 'x.com',
+      appPaid: false,
+    });
+    expect(normalizeConfig({ domain: 'x.com', appPaid: true })).toEqual({
+      domain: 'x.com',
+      appPaid: true,
+    });
+  });
+  it('omits appPaid when unset so nothing is sent to bidders', () => {
+    expect(normalizeConfig({ domain: 'x.com' })).not.toHaveProperty('appPaid');
+  });
   it('omits the 1.13 flags when unset so native defaults (true) apply', () => {
     const out = normalizeConfig({ domain: 'x.com' });
     expect(out).not.toHaveProperty('autoTrackPageviews');

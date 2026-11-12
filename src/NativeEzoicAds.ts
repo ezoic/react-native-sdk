@@ -10,10 +10,16 @@ export interface EzoicConfig {
   testMode?: boolean;
   /** Record a pageview automatically on native screen changes. Default `true`. */
   autoTrackPageviews?: boolean;
-  /** Enable the built-in TCF CMP for GDPR regions. Default `true`; set `false` if you run your own CMP. */
+  /**
+   * Enable the built-in CMP: the TCF dialog in GDPR regions and the notice and
+   * "Do Not Sell" choice in covered US states. Default `true`; set `false` if
+   * you run your own CMP.
+   */
   cmpEnabled?: boolean;
   /** Present the consent dialog (if required) right after `initialize` succeeds. Default `true`. */
   autoPresentConsent?: boolean;
+  /** Whether the app is paid, sent to bidders as OpenRTB `app.paid`. Unset sends nothing. */
+  appPaid?: boolean;
 }
 
 /**
@@ -52,7 +58,9 @@ export interface Spec extends TurboModule {
   presentConsentIfRequired(): Promise<EzoicConsentOutcomeRaw>;
   presentConsentSettings(): Promise<EzoicConsentOutcomeRaw>;
   isConsentRequired(): Promise<boolean | null>;
+  isPrivacyOptionsRequired(): Promise<boolean | null>;
   resetConsent(): void;
+  setAppContent(language: string | null, genre: string | null): void;
   loadRewardedAd(adUnitIdentifier: string): Promise<void>;
   showRewardedAd(
     adUnitIdentifier: string,

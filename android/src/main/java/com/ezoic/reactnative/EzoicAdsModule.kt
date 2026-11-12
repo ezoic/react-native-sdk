@@ -22,6 +22,7 @@ import com.ezoic.ads.sdk.adunits.EzoicRewardedAdListenerAdapter
 import com.ezoic.ads.sdk.core.EzoicAds
 import com.ezoic.ads.sdk.core.EzoicConfiguration
 import com.ezoic.ads.sdk.core.EzoicError
+import com.ezoic.ads.sdk.privacy.cmp.CmpError
 import com.ezoic.ads.sdk.privacy.cmp.ConsentDecisionType
 import com.ezoic.ads.sdk.privacy.cmp.ConsentOutcome
 import java.util.concurrent.ConcurrentHashMap
@@ -100,7 +101,8 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
       debugEnabled = config.optBool("debugEnabled", false),
       testMode = config.optBool("testMode", false),
       autoTrackPageviews = config.optBool("autoTrackPageviews", true),
-      cmpEnabled = config.optBool("cmpEnabled", true)
+      cmpEnabled = config.optBool("cmpEnabled", true),
+      appPaid = config.optBoolOrNull("appPaid")
     )
     val autoPresentConsent = config.optBool("autoPresentConsent", true)
     // Native initialize registers a ProcessLifecycleOwner observer, which
@@ -171,8 +173,16 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
     UiThreadUtil.runOnUiThread { promise.resolve(EzoicAds.instance.isConsentRequired) }
   }
 
+  override fun isPrivacyOptionsRequired(promise: Promise) {
+    UiThreadUtil.runOnUiThread { promise.resolve(EzoicAds.instance.isPrivacyOptionsRequired) }
+  }
+
   override fun resetConsent() {
     UiThreadUtil.runOnUiThread { EzoicAds.instance.resetConsent() }
+  }
+
+  override fun setAppContent(language: String?, genre: String?) {
+    EzoicAds.instance.setAppContent(language, genre)
   }
 
   /**
@@ -620,19 +630,31 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
         }
       )
     }
-    is ConsentOutcome.Failed -> consentFailureMap(error.code, error.message)
+    is ConsentOutcome.Failed -> consentFailureMap(error.consentErrorCode(), error.message ?: UNKNOWN_ERROR_MESSAGE)
   }
+
+  /**
+   * `Failed.error` is an `EzoicError` through `EzoicAds` and a `CmpError` from
+   * the CMP itself; both carry the same numeric codes.
+   */
+  private fun Exception.consentErrorCode(): Int =
+    (this as? EzoicError)?.code ?: (this as? CmpError)?.code ?: UNKNOWN_ERROR_CODE
 
   private fun consentTypeMap(type: String): WritableMap =
     Arguments.createMap().apply { putString("type", type) }
 
   private fun ReadableMap.optBool(key: String, default: Boolean): Boolean =
-    if (hasKey(key) && !isNull(key)) getBoolean(key) else default
+    optBoolOrNull(key) ?: default
+
+  private fun ReadableMap.optBoolOrNull(key: String): Boolean? =
+    if (hasKey(key) && !isNull(key)) getBoolean(key) else null
 
   companion object {
     const val NAME = NativeEzoicAdsSpec.NAME
     private const val NO_ACTIVITY_CODE = -1
     private const val NO_ACTIVITY_MESSAGE = "No foreground Activity"
+    private const val UNKNOWN_ERROR_CODE = -1
+    private const val UNKNOWN_ERROR_MESSAGE = "Unknown error"
     private const val REWARDED_EVENT = "EzoicRewardedAdEvent"
     private const val INTERSTITIAL_EVENT = "EzoicInterstitialAdEvent"
   }

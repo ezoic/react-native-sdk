@@ -13,10 +13,15 @@ export type EzoicConsentDecision = 'acceptAll' | 'rejectAll' | 'custom';
  *   session.
  * - `alreadyPresenting`: a consent dialog is already on screen or being
  *   prepared.
- * - `failed`: the dialog could not be shown. `code` is the native
- *   `EzoicError` code, or `-1` (`'No foreground Activity'`) when the wrapper
- *   had no foreground Activity / view controller: native was not called, ads
- *   stay gated, and you should call again once a screen is showing.
+ * - `failed`: the dialog could not be shown. `code` is the native error code
+ *   (1001 not initialized, 2001 network, 4001 render, 5002 invalid consent),
+ *   or `-1`: with `'No foreground Activity'` the wrapper had no foreground
+ *   Activity / view controller (native was not called, ads stay gated; call
+ *   again once a screen is showing), otherwise the native error had no code.
+ *
+ * From `presentConsentSettings` in a covered US state: `decided` with
+ * `acceptAll` (not opted out) or `rejectAll` (opted out of sale/sharing), or
+ * `dismissed` (closed without saving).
  */
 export type EzoicConsentOutcome =
   | { type: 'notRequired' }

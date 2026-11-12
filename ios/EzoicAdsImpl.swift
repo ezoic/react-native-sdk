@@ -97,7 +97,8 @@ import EzoicAdsSDKBinary
         debugEnabled: (config["debugEnabled"] as? Bool) ?? false,
         testMode: (config["testMode"] as? Bool) ?? false,
         autoTrackPageviews: (config["autoTrackPageviews"] as? Bool) ?? true,
-        cmpEnabled: (config["cmpEnabled"] as? Bool) ?? true
+        cmpEnabled: (config["cmpEnabled"] as? Bool) ?? true,
+        appPaid: config["appPaid"] as? Bool
       )
       let autoPresentConsent = (config["autoPresentConsent"] as? Bool) ?? true
       EzoicAds.shared.initialize(with: configuration) { result in
@@ -189,9 +190,21 @@ import EzoicAdsSDKBinary
     }
   }
 
+  @objc public func isPrivacyOptionsRequired(_ resolve: @escaping (Any?) -> Void) {
+    onMain {
+      resolve(EzoicAds.shared.isPrivacyOptionsRequired.map { NSNumber(value: $0) })
+    }
+  }
+
   @objc public func resetConsent() {
     onMain {
       EzoicAds.shared.resetConsent()
+    }
+  }
+
+  @objc public func setAppContent(_ language: String?, genre: String?) {
+    onMain {
+      EzoicAds.shared.setAppContent(language: language, genre: genre)
     }
   }
 
@@ -212,6 +225,7 @@ import EzoicAdsSDKBinary
 
   private static let noHostCode = -1
   private static let noHostMessage = "No foreground Activity"
+  private static let unknownErrorCode = -1
 
   private static func consentFailure(code: Int, message: String) -> [String: Any] {
     return ["type": "failed", "code": code, "message": message]
@@ -237,7 +251,8 @@ import EzoicAdsSDKBinary
       }
       return ["type": "decided", "decision": name]
     case .failed(let error):
-      return consentFailure(code: error.code, message: error.localizedDescription)
+      // `EzoicError` through `EzoicAds`, `CmpError` from the CMP; both carry the same codes.
+      return consentFailure(code: (error as? EzoicErrorCode)?.code ?? unknownErrorCode, message: error.localizedDescription)
     @unknown default:
       return consentFailure(code: -1, message: "Unrecognized outcome")
     }

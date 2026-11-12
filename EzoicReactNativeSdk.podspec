@@ -2,13 +2,43 @@ require "json"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 ios_sdk = package["ezoic"]["iosSdk"]
-ios_sdk_framework = "ios/Frameworks/EzoicAdsSDKBinary.xcframework"
 
-unless File.exist?(File.join(__dir__, ios_sdk_framework, "Info.plist"))
-  raise Pod::Informative, "EzoicReactNativeSdk: #{ios_sdk_framework} is missing. " \
-    "It ships in the npm package; in a git checkout run `npm install` or " \
+ads_framework = "ios/Frameworks/EzoicAdsSDKBinary.xcframework"
+cmp_framework = "ios/Frameworks/EzoicCmpSDKBinary.xcframework"
+# The pod of @ezoic/react-native-cmp-sdk, which vendors EzoicCmpSDKBinary itself.
+cmp_pod = "EzoicReactNativeCmpSdk"
+
+missing = [ads_framework, cmp_framework].reject do |framework|
+  File.exist?(File.join(__dir__, framework, "Info.plist"))
+end
+unless missing.empty?
+  raise Pod::Informative, "EzoicReactNativeSdk: #{missing.join(", ")} missing. " \
+    "They ship in the npm package; in a git checkout run `npm install` or " \
     "`node scripts/fetch-ios-sdk.js` in #{__dir__} to download EzoicAdsSDK #{ios_sdk["version"]}"
 end
+
+# EzoicAdsSDKBinary links against EzoicCmpSDKBinary, so the app needs exactly one
+# copy of it. CocoaPods rejects two pods vendoring the same framework, and React
+# Native autolinks only the app's own dependencies, so this package can't
+# require the CMP package. When the app depends on the CMP package too, its pod
+# (autolinked the same way) provides the framework and this pod depends on it;
+# otherwise this pod vendors it. RN evaluates podspecs while the Podfile is still
+# loading, so read the app's package.json (the first one above the Podfile's
+# directory), with the same dependency keys RN's autolinking reads.
+app_depends_on = lambda do |name|
+  return false unless defined?(Pod::Config)
+  dir = Pod::Config.instance.installation_root.to_s
+  until File.exist?(File.join(dir, "package.json"))
+    parent = File.dirname(dir)
+    return false if parent == dir
+    dir = parent
+  end
+  app = JSON.parse(File.read(File.join(dir, "package.json")))
+  %w[dependencies peerDependencies devDependencies].any? { |key| (app[key] || {}).key?(name) }
+rescue JSON::ParserError
+  false
+end
+uses_cmp_pod = app_depends_on.call("@ezoic/react-native-cmp-sdk")
 
 Pod::Spec.new do |s|
   s.name         = "EzoicReactNativeSdk"
@@ -24,16 +54,24 @@ Pod::Spec.new do |s|
   s.source_files = "ios/**/*.{h,m,mm,swift,cpp}"
   s.private_header_files = "ios/**/*.h"
   # exclude_files also filters vendored_frameworks, so exclude only the
-  # contents of the xcframework, not the bundle itself.
+  # contents of the xcframeworks, not the bundles themselves.
   s.exclude_files = "ios/Frameworks/*.xcframework/**/*"
 
   install_modules_dependencies(s)
 
-  # Native Ezoic Ads SDK (vends the `EzoicAdsSDKBinary` module), bundled in the
-  # npm package by scripts/fetch-ios-sdk.js instead of the EzoicAdsSDK pod.
-  # This is the `-cocoapods` build: a static framework that links the host's
-  # PrebidMobile / GoogleMobileAds / DTBiOSSDK rather than embedding them.
-  s.vendored_frameworks = ios_sdk_framework
+  # Native Ezoic Ads SDK (vends the `EzoicAdsSDKBinary` module, which re-exports
+  # `EzoicCmpSDKBinary`), bundled in the npm package by scripts/fetch-ios-sdk.js
+  # instead of the EzoicAdsSDK pod. These are the `-cocoapods` builds: static
+  # frameworks that link the host's PrebidMobile / GoogleMobileAds / DTBiOSSDK
+  # rather than embedding them.
+  if uses_cmp_pod
+    s.vendored_frameworks = ads_framework
+    # Same native SDK version on both sides: the ads binary is built against
+    # this exact CMP binary.
+    s.dependency cmp_pod, package["version"]
+  else
+    s.vendored_frameworks = [ads_framework, cmp_framework]
+  end
 
   # Pins from package.json `ezoic.iosSdk.podDependencies`; they must match what
   # the bundled binary was built against (PrebidMobile's Swift ABI is exact).

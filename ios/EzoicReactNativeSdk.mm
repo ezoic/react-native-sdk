@@ -64,6 +64,7 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   if (config.autoTrackPageviews().has_value()) dict[@"autoTrackPageviews"] = @(config.autoTrackPageviews().value());
   if (config.cmpEnabled().has_value()) dict[@"cmpEnabled"] = @(config.cmpEnabled().value());
   if (config.autoPresentConsent().has_value()) dict[@"autoPresentConsent"] = @(config.autoPresentConsent().value());
+  if (config.appPaid().has_value()) dict[@"appPaid"] = @(config.appPaid().value());
   [_impl initialize:dict
             resolve:^(id _Nullable v) { resolve(v); }
              reject:^(NSString *code, NSString *msg, NSError *_Nullable e) { reject(code, msg, e); }];
@@ -99,8 +100,16 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   [_impl isConsentRequired:^(id _Nullable v) { resolve(v); }];
 }
 
+- (void)isPrivacyOptionsRequired:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  [_impl isPrivacyOptionsRequired:^(id _Nullable v) { resolve(v); }];
+}
+
 - (void)resetConsent {
   [_impl resetConsent];
+}
+
+- (void)setAppContent:(NSString *_Nullable)language genre:(NSString *_Nullable)genre {
+  [_impl setAppContent:language genre:genre];
 }
 
 - (void)loadRewardedAd:(NSString *)adUnitIdentifier

@@ -17,7 +17,7 @@ name: Publish to npm
 #        npm version 0.0.1-bootstrap.0 --no-git-tag-version
 #        npm publish --access public --tag bootstrap --ignore-scripts
 #        npm deprecate @ezoic/react-native-cmp-sdk@0.0.1-bootstrap.0 \
-#          "Bootstrap placeholder; install 1.22.2 or later"
+#          "Bootstrap placeholder; install 1.22.3 or later"
 #        git checkout package.json
 #      then never publish from a laptop again. While the CMP package is
 #      missing, the preflight step below publishes the ads package alone; a

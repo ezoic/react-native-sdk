@@ -23,7 +23,7 @@ npm install @ezoic/react-native-sdk
 
 The native `EzoicAdsSDK` binary framework and the consent framework it links,
 `EzoicCmpSDK`, are bundled inside this npm package (`@ezoic/react-native-sdk`
-1.22.2 bundles both at 1.23.1), so CocoaPods does not download an `EzoicAdsSDK`
+1.22.3 bundles both at 1.23.2), so CocoaPods does not download an `EzoicAdsSDK`
 pod and the CocoaPods trunk going read-only
 does not affect React Native apps. `pod install` still pulls its dependencies
 `PrebidMobile`, `Google-Mobile-Ads-SDK` and `AmazonPublisherServicesSDK` from
@@ -65,7 +65,7 @@ or lists an identifier with uppercase letters (Apple ignores those).
 
 ### Android
 
-The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.22.2 from Maven Central,
+The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.22.3 from Maven Central,
 which brings in the Ezoic CMP (`com.ezoic.sdk:ezoic-cmp-sdk`), Google Mobile Ads (`play-services-ads`) 25.5.0 and Google's
 InMobi mediation adapter (InMobi bids in Google Ad Manager auctions; nothing to
 configure). The wrapper's Kotlin compiles against Google Mobile Ads 25.5.0, so
@@ -573,6 +573,16 @@ an unlabelled pageview.
   - `.getNextAdTagUrl()` → `Promise<string | null>`
   - `.reportImpression({ revenueUsd? })` → `Promise<void>`
   - `.destroy()` → `Promise<void>`
+
+## Changes in 1.22.3
+
+- Native SDK: Android 1.22.3, iOS 1.23.2.
+- An interstitial that Google renders is closed by the SDK once it has been on
+  screen for 20 seconds without being dismissed; `onDismissed` fires and
+  `show()` resolves as usual. Only time the ad is in front counts: a store
+  page, a browser or the app being in the background pauses it. Rewarded ads
+  are never closed this way.
+- No API changes; nothing to change in your app.
 
 ## Changes in 1.22.2
 

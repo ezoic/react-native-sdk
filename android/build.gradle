@@ -32,12 +32,20 @@ buildscript {
 //
 //   "ezoic": { "includeCmp": false }
 //
-// Absent or true includes it. React Native apps keep package.json one level
-// above their android/ project (the root Gradle project). When it can't be
-// found or parsed, the CMP stays in (the default).
+// Absent or true includes it. The app's package.json is the first one found
+// walking up from the root Gradle project (android/), as the podspec walks up
+// from the Podfile. When none is found or it can't be parsed, the CMP stays in
+// (the default).
 def ezoicIncludeCmp = {
-  def appPackageJson = new File(rootProject.projectDir, "../package.json")
-  if (!appPackageJson.isFile()) {
+  def appPackageJson = null
+  for (def dir = rootProject.projectDir.canonicalFile; dir != null; dir = dir.parentFile) {
+    def candidate = new File(dir, "package.json")
+    if (candidate.isFile()) {
+      appPackageJson = candidate
+      break
+    }
+  }
+  if (appPackageJson == null) {
     return true
   }
   def app

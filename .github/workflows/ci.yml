@@ -77,12 +77,20 @@ jobs:
   # runtime, so a missing link reference would otherwise go unnoticed) and,
   # without the CMP, for any EzoicCmpSDKBinary symbol or framework.
   smoke:
-    name: smoke (${{ matrix.platform }}, includeCmp=${{ matrix.include-cmp }})
+    name: smoke (${{ matrix.variant }}, ${{ matrix.platform }}, includeCmp=${{ matrix.include-cmp }})
     strategy:
       fail-fast: false
       matrix:
+        variant: [ads]
         platform: [android, ios]
         include-cmp: ['true', 'false']
+        # Both packages: the ads pod takes core and CMP from the CMP pod and
+        # still compiles its provider reference; exactly one
+        # EZBuiltInCmpProvider must end up in the app.
+        include:
+          - variant: both
+            platform: ios
+            include-cmp: 'true'
     runs-on: ${{ matrix.platform == 'ios' && 'macos-26' || 'ubuntu-latest' }}
     timeout-minutes: 60
     permissions:
@@ -112,4 +120,4 @@ jobs:
       - name: Build the smoke app
         env:
           EZOIC_SMOKE_INCLUDE_CMP: ${{ matrix.include-cmp }}
-        run: scripts/smoke-app.sh ads "$RUNNER_TEMP/smoke" ${{ matrix.platform }}
+        run: scripts/smoke-app.sh ${{ matrix.variant }} "$RUNNER_TEMP/smoke" ${{ matrix.platform }}

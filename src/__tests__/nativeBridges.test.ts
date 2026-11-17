@@ -149,7 +149,7 @@ describe('@ezoic/react-native-sdk without the built-in CMP', () => {
       /#if EZOIC_INCLUDE_CMP\n@_spi\(EzoicInternal\) import EzoicCmpSDKBinary\n[\s\S]*= BuiltInCmpProvider\.self\n#endif/
     );
     expect(read('ios', 'EzoicAdsImpl.swift')).toMatch(
-      /#if EZOIC_INCLUDE_CMP\s+(\/\/[^\n]*\n\s+)*_ = ezoicBuiltInCmpProviderClass\s+#endif/
+      /#if EZOIC_INCLUDE_CMP\s+(\/\/[^\n]*\n\s+)*_ = _ezoicBuiltInCmpProviderClass\s+#endif/
     );
   });
 
@@ -168,7 +168,7 @@ describe('@ezoic/react-native-sdk without the built-in CMP', () => {
   it('excludes ezoic-cmp-sdk on Android when the flag is false', () => {
     const gradle = read('android', 'build.gradle');
     expect(gradle).toContain(
-      'new File(rootProject.projectDir, "../package.json")'
+      'for (def dir = rootProject.projectDir.canonicalFile; dir != null; dir = dir.parentFile)'
     );
     expect(gradle).toMatch(
       /implementation\("com\.ezoic\.sdk:ezoic-ads-sdk:[^"]+"\) \{\n\s+if \(!ezoicIncludeCmp\) \{\n\s+exclude group: "com\.ezoic\.sdk", module: "ezoic-cmp-sdk"/

@@ -16,7 +16,7 @@ import EzoicAdsSDKBinary
     // A static link only loads object files something references. This class
     // is always linked (the module creates it), so referencing the provider
     // global here makes the linker load ios/EzoicCmpLink.swift and the CMP.
-    _ = ezoicBuiltInCmpProviderClass
+    _ = _ezoicBuiltInCmpProviderClass
     #endif
     super.init()
   }

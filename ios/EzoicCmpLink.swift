@@ -12,6 +12,8 @@
 #if EZOIC_INCLUDE_CMP
 @_spi(EzoicInternal) import EzoicCmpSDKBinary
 
-/// Not API: referenced (from `EzoicAdsImpl.init`) only to link the built-in CMP.
-let ezoicBuiltInCmpProviderClass: AnyClass = BuiltInCmpProvider.self
+/// Not API: referenced only to link the built-in CMP. Public, like the dist
+/// package's link file, so no optimisation can treat it as unused; it is also
+/// read in `EzoicAdsImpl.init`.
+public let _ezoicBuiltInCmpProviderClass: AnyClass = BuiltInCmpProvider.self
 #endif

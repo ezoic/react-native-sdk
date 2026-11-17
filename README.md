@@ -458,9 +458,9 @@ Then rebuild both platforms (`cd ios && pod install`, and a Gradle build):
 - **iOS:** the pod vendors no `EzoicCmpSDK` framework and compiles no reference
   to it.
 - **Android:** the package's `ezoic-ads-sdk` dependency excludes
-  `com.ezoic.sdk:ezoic-cmp-sdk`. The flag is read from the `package.json` one
-  level above your `android/` project; if Gradle can't find it, the CMP stays
-  in.
+  `com.ezoic.sdk:ezoic-cmp-sdk`. Like the podspec, Gradle reads the first
+  `package.json` found walking up from your `android/` project; if it finds
+  none, the CMP stays in.
 
 Without the flag (or with `"includeCmp": true`) the CMP is included, as
 before. Without the CMP the SDK behaves exactly as with `cmpEnabled: false`:

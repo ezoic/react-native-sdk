@@ -21,10 +21,10 @@ npm install @ezoic/react-native-sdk
 
 ### iOS
 
-The native `EzoicAdsSDK` binary framework and the consent framework it links,
-`EzoicCmpSDK`, are bundled inside this npm package (`@ezoic/react-native-sdk`
-1.22.3 bundles both at 1.23.2), so CocoaPods does not download an `EzoicAdsSDK`
-pod and the CocoaPods trunk going read-only
+The native `EzoicAdsSDK` binary framework, the consent core it links
+(`EzoicConsentCore`) and the built-in CMP (`EzoicCmpSDK`) are bundled inside
+this npm package (`@ezoic/react-native-sdk` 1.24.0 bundles all three at
+1.24.0), so CocoaPods does not download an `EzoicAdsSDK` pod and the CocoaPods trunk going read-only
 does not affect React Native apps. `pod install` still pulls its dependencies
 `PrebidMobile`, `Google-Mobile-Ads-SDK` and `AmazonPublisherServicesSDK` from
 CocoaPods as before; no `Podfile` changes are needed when upgrading. If
@@ -48,8 +48,9 @@ cd ios && RCT_NEW_ARCH_ENABLED=1 pod install
 
 If your app also depends on [`@ezoic/react-native-cmp-sdk`](cmp/README.md)
 (not needed: this package already includes the CMP), **keep both packages at
-the same version.** This package's pod then takes `EzoicCmpSDK` from that package's pod
-instead of its own copy, so the app links one.
+the same version.** This package's pod then takes `EzoicConsentCore` and
+`EzoicCmpSDK` from that package's pod instead of its own copies, so the app
+links one of each.
 
 Add your Google Ad Manager application ID, `NSUserTrackingUsageDescription`
 and the SKAdNetwork IDs to `ios/<YourApp>/Info.plist`; see
@@ -65,8 +66,10 @@ or lists an identifier with uppercase letters (Apple ignores those).
 
 ### Android
 
-The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.22.3 from Maven Central,
-which brings in the Ezoic CMP (`com.ezoic.sdk:ezoic-cmp-sdk`), Google Mobile Ads (`play-services-ads`) 25.5.0 and Google's
+The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.24.0 from Maven Central,
+which brings in the consent core (`com.ezoic.sdk:ezoic-consent-core`), the
+Ezoic CMP (`com.ezoic.sdk:ezoic-cmp-sdk`, unless
+[removed](#removing-the-built-in-cmp)), Google Mobile Ads (`play-services-ads`) 25.5.0 and Google's
 InMobi mediation adapter (InMobi bids in Google Ad Manager auctions; nothing to
 configure). The wrapper's Kotlin compiles against Google Mobile Ads 25.5.0, so
 the app's Kotlin Gradle plugin must be 2.2 or newer. React Native 0.87+
@@ -393,6 +396,9 @@ The promise always resolves (never rejects) with an `EzoicConsentOutcome`:
 - **`resetConsent()`** deletes the stored decision so the dialog shows again
   (ads re-gate until the user decides). The US choice is forgotten too, and
   the US notice shows again at the next launch.
+- **`isBuiltInCmpIncluded()`** (1.24.0) resolves `true` when the built-in CMP
+  is in the app (the default) and `false` when the app
+  [removed it](#removing-the-built-in-cmp). Safe to call before `initialize`.
 
 ### Privacy settings button (required)
 
@@ -433,6 +439,39 @@ way automatically if it finds `IABTCF_CmpSdkID` set to another CMP's ID.
 
 ```tsx
 await EzoicAds.initialize({ domain: 'example.com', cmpEnabled: false });
+```
+
+#### Removing the built-in CMP
+
+From 1.24.0 you can also leave the built-in CMP's code out of your app. Add
+this to your **app's** `package.json` (next to its `dependencies`), together
+with `cmpEnabled: false` above:
+
+```json
+{
+  "ezoic": { "includeCmp": false }
+}
+```
+
+Then rebuild both platforms (`cd ios && pod install`, and a Gradle build):
+
+- **iOS:** the pod vendors no `EzoicCmpSDK` framework and compiles no reference
+  to it.
+- **Android:** the package's `ezoic-ads-sdk` dependency excludes
+  `com.ezoic.sdk:ezoic-cmp-sdk`. Like the podspec, Gradle reads the first
+  `package.json` found walking up from your `android/` project; if it finds
+  none, the CMP stays in.
+
+Without the flag (or with `"includeCmp": true`) the CMP is included, as
+before. Without the CMP the SDK behaves exactly as with `cmpEnabled: false`:
+the `present*` calls resolve as they would then and ads are never gated on
+consent; if `cmpEnabled` is still `true`, `initialize` logs a warning that
+the CMP is not in the app. `EzoicAds.isBuiltInCmpIncluded()` resolves `false`. The flag has no
+effect while the app also depends on `@ezoic/react-native-cmp-sdk`, which
+contains the CMP (`pod install` and Gradle print a warning).
+
+```tsx
+const included = await EzoicAds.isBuiltInCmpIncluded(); // false
 ```
 
 ### Manual consent
@@ -563,6 +602,7 @@ an unlabelled pageview.
 - `EzoicAds.isConsentRequired()` → `Promise<boolean | null>`
 - `EzoicAds.isPrivacyOptionsRequired()` → `Promise<boolean | null>` (1.22.2)
 - `EzoicAds.resetConsent()` → `void`
+- `EzoicAds.isBuiltInCmpIncluded()` → `Promise<boolean>` (1.24.0)
 - `EzoicAds.setAppContent({ language?, genre? }?)` → `void` (1.22.2)
 - `EzoicErrorCode.consentRequired` = `5001`
 - `<EzoicBannerView adUnitIdentifier size collapseOnNoFill onSizeChange onLoad onError onImpression onClick onOpen onClose />`
@@ -573,6 +613,24 @@ an unlabelled pageview.
   - `.getNextAdTagUrl()` → `Promise<string | null>`
   - `.reportImpression({ revenueUsd? })` → `Promise<void>`
   - `.destroy()` → `Promise<void>`
+
+## Changes in 1.24.0
+
+The first release since 1.22.3; React Native had no 1.23.x.
+
+- Native SDK 1.24.0 on both platforms. Android adds
+  `com.ezoic.sdk:ezoic-consent-core`; iOS bundles three frameworks,
+  `EzoicConsentCore`, `EzoicAdsSDK` and `EzoicCmpSDK`. No Podfile changes are
+  needed.
+- The built-in CMP can be removed: `"ezoic": { "includeCmp": false }` in the
+  app's `package.json` leaves it out of the iOS and Android builds. Pair it
+  with `cmpEnabled: false`; see
+  [Removing the built-in CMP](#removing-the-built-in-cmp).
+- New `EzoicAds.isBuiltInCmpIncluded()` → `Promise<boolean>`.
+- `@ezoic/react-native-cmp-sdk` 1.24.0 bundles `EzoicConsentCore` as well; keep
+  it at the same version as this package if you install both.
+- No breaking changes; the `failed` consent outcome keeps its `code` /
+  `message`. Apps that don't set the flag get the same CMP as before.
 
 ## Changes in 1.22.3
 

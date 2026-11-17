@@ -10,7 +10,9 @@
 #
 # With no platform given it builds both. <workdir> is created (or reused) and
 # holds the tarballs, the app and the iOS DerivedData. After each build it
-# prints which native CMP copies ended up in the app.
+# prints which native CMP copies ended up in the app and fails unless the CMP
+# is in the app exactly when expected: always with the CMP package, and with
+# the ads package alone unless EZOIC_SMOKE_INCLUDE_CMP=false.
 #
 # Environment:
 #   EZOIC_IOS_SDK_ZIP_DIR=<dir>   passed to scripts/fetch-ios-sdk.js while packing
@@ -19,6 +21,9 @@
 #                                 repositories (local, unreleased Maven artifacts)
 #   EZOIC_SMOKE_RN_VERSION=<v>    React Native version of the app (default: the
 #                                 repo's react-native devDependency)
+#   EZOIC_SMOKE_INCLUDE_CMP=false set `"ezoic": { "includeCmp": false }` in the
+#                                 app's package.json (the built-in CMP removal
+#                                 flag); otherwise the key is left out
 #   USE_FRAMEWORKS=static|dynamic Podfile linkage; defaults to static whenever the
 #                                 ads package is installed (it requires it)
 set -euo pipefail
@@ -42,6 +47,18 @@ app="$workdir/EzoicSmoke"
 rn_version="${EZOIC_SMOKE_RN_VERSION:-$(node -p "require('$repo/package.json').devDependencies['react-native']")}"
 
 log() { printf '\n==> %s\n' "$*"; }
+fail() { echo "smoke-app: FAIL: $*" >&2; exit 1; }
+
+include_cmp_flag="${EZOIC_SMOKE_INCLUDE_CMP:-true}"
+case "$include_cmp_flag" in true | false) ;; *)
+  echo "EZOIC_SMOKE_INCLUDE_CMP must be true or false" >&2
+  exit 2
+  ;;
+esac
+# The CMP package always contains the CMP; the flag only removes it from the
+# ads package.
+expect_cmp=true
+if [ "$variant" = ads ] && [ "$include_cmp_flag" = false ]; then expect_cmp=false; fi
 
 log "Packing ($variant)"
 rm -rf "$pkgs" && mkdir -p "$pkgs"
@@ -66,6 +83,19 @@ cd "$app"
 npm uninstall --silent @ezoic/react-native-sdk @ezoic/react-native-cmp-sdk >/dev/null 2>&1 || true
 npm install --silent --legacy-peer-deps "${tarballs[@]}"
 
+log "App package.json: includeCmp=$include_cmp_flag (CMP expected in the app: $expect_cmp)"
+INCLUDE_CMP="$include_cmp_flag" node -e '
+const fs = require("fs");
+const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+if (process.env.INCLUDE_CMP === "false") {
+  pkg.ezoic = { ...(pkg.ezoic || {}), includeCmp: false };
+} else if (pkg.ezoic) {
+  delete pkg.ezoic.includeCmp;
+  if (Object.keys(pkg.ezoic).length === 0) delete pkg.ezoic;
+}
+fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+'
+
 {
   echo "import { useEffect, useState } from 'react';"
   echo "import { Button, SafeAreaView, Text } from 'react-native';"
@@ -86,8 +116,8 @@ EOF
     cat <<'EOF'
     EzoicAds.setAppContent({ language: 'en', genre: 'News' });
     EzoicAds.initialize({ domain: 'example.com', appPaid: false, debugEnabled: true })
-      .then(() => EzoicAds.isPrivacyOptionsRequired())
-      .then((v) => setStatus(`privacy options required: ${v}`))
+      .then(() => Promise.all([EzoicAds.isBuiltInCmpIncluded(), EzoicAds.isPrivacyOptionsRequired()]))
+      .then(([cmp, v]) => setStatus(`built-in CMP included: ${cmp}, privacy options required: ${v}`))
       .catch((e) => setStatus(String(e)));
 EOF
   fi
@@ -135,6 +165,14 @@ build_android() {
   done
   rm -rf "$dex"
   echo "$apk: $count"
+  if [ "$expect_cmp" = true ]; then
+    [ "$count" -eq 1 ] || fail "expected one EzoicCmp class in the APK, found $count"
+  else
+    [ "$count" -eq 0 ] || fail "includeCmp=false, but the APK has $count EzoicCmp classes"
+    local deps
+    deps="$(cd android && ./gradlew --quiet :app:dependencies --configuration debugRuntimeClasspath)"
+    grep -q 'com.ezoic.sdk:ezoic-consent-core' <<< "$deps" || fail "ezoic-consent-core missing from the app"
+  fi
 }
 
 build_ios() {
@@ -152,15 +190,30 @@ build_ios() {
     -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
     -derivedDataPath "$dd" build
   log "iOS: pods vendoring an Ezoic framework"
-  grep -l 'Ezoic[A-Za-z]*SDKBinary' ios/Pods/Target\ Support\ Files/*/*-xcframeworks.sh |
+  grep -l 'Ezoic[A-Za-z]*Binary' ios/Pods/Target\ Support\ Files/*/*-xcframeworks.sh |
     while read -r script; do
-      echo "$(basename "$(dirname "$script")"): $(grep -oE 'Ezoic[A-Za-z]*SDKBinary\.xcframework' "$script" | sort -u | tr '\n' ' ')"
+      echo "$(basename "$(dirname "$script")"): $(grep -oE 'Ezoic[A-Za-z]*Binary\.xcframework' "$script" | sort -u | tr '\n' ' ')"
     done
   log "iOS: EzoicCmpSDKBinary.framework copies in the build"
   find "$dd/Build/Products" -type d -name 'EzoicCmpSDKBinary.framework' | sed "s#$dd/##"
   local binary="$dd/Build/Products/Debug-iphonesimulator/EzoicSmoke.app/EzoicSmoke.debug.dylib"
   [ -f "$binary" ] || binary="$dd/Build/Products/Debug-iphonesimulator/EzoicSmoke.app/EzoicSmoke"
   echo "CmpController class definitions in the app binary: $(nm -U "$binary" | grep -c '__DATA__TtC17EzoicCmpSDKBinary13CmpController$' || true)"
+  # The ads binary finds the CMP by this Objective-C class name at runtime and
+  # never references it, so a missing link reference fails silently: check it.
+  local provider cmp_symbols
+  provider="$(nm -U "$binary" | grep -c ' _OBJC_CLASS_\$_EZBuiltInCmpProvider$' || true)"
+  cmp_symbols="$(nm "$binary" | grep -c 'EzoicCmpSDKBinary' || true)"
+  echo "EZBuiltInCmpProvider class definitions in the app binary: $provider"
+  echo "EzoicCmpSDKBinary symbols in the app binary: $cmp_symbols"
+  if [ "$expect_cmp" = true ]; then
+    [ "$provider" -eq 1 ] || fail "expected EZBuiltInCmpProvider in the app binary, found $provider"
+  else
+    [ "$provider" -eq 0 ] || fail "includeCmp=false, but the app binary defines EZBuiltInCmpProvider"
+    [ "$cmp_symbols" -eq 0 ] || fail "includeCmp=false, but the app binary has $cmp_symbols EzoicCmpSDKBinary symbols"
+    [ -z "$(find "$dd/Build/Products" -type d -name 'EzoicCmpSDKBinary.framework')" ] ||
+      fail "includeCmp=false, but EzoicCmpSDKBinary.framework is in the build"
+  fi
 }
 
 for platform in $platforms; do
@@ -170,4 +223,4 @@ for platform in $platforms; do
     *) echo "unknown platform $platform" >&2; exit 2 ;;
   esac
 done
-log "Done: $variant ($platforms)"
+log "Done: $variant, includeCmp=$include_cmp_flag ($platforms)"

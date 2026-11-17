@@ -63,6 +63,61 @@ jobs:
           }
           # Paths have no spaces, so word splitting is safe here.
           check "$RUNNER_TEMP"/ezoic-react-native-sdk-*.tgz \
-            $(slices EzoicAdsSDKBinary) $(slices EzoicCmpSDKBinary)
+            $(slices EzoicConsentCoreBinary) $(slices EzoicAdsSDKBinary) $(slices EzoicCmpSDKBinary)
           check "$RUNNER_TEMP"/ezoic-react-native-cmp-sdk-*.tgz \
-            $(slices EzoicCmpSDKBinary) package/lib/module/index.js package/EzoicReactNativeCmpSdk.podspec
+            $(slices EzoicConsentCoreBinary) $(slices EzoicCmpSDKBinary) \
+            package/lib/module/index.js package/EzoicReactNativeCmpSdk.podspec
+
+  # Builds a fresh React Native app that installs the packed
+  # @ezoic/react-native-sdk (scripts/smoke-app.sh), with the built-in CMP
+  # (default) and with `"ezoic": { "includeCmp": false }` in the app's
+  # package.json. The script fails unless the CMP is in the app exactly when
+  # expected: Android counts the EzoicCmp class in the APK's dex; iOS checks
+  # the app binary for EZBuiltInCmpProvider (the ads binary finds it by name at
+  # runtime, so a missing link reference would otherwise go unnoticed) and,
+  # without the CMP, for any EzoicCmpSDKBinary symbol or framework.
+  smoke:
+    name: smoke (${{ matrix.variant }}, ${{ matrix.platform }}, includeCmp=${{ matrix.include-cmp }})
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [ads]
+        platform: [android, ios]
+        include-cmp: ['true', 'false']
+        # Both packages: the ads pod takes core and CMP from the CMP pod and
+        # still compiles its provider reference; exactly one
+        # EZBuiltInCmpProvider must end up in the app.
+        include:
+          - variant: both
+            platform: ios
+            include-cmp: 'true'
+    runs-on: ${{ matrix.platform == 'ios' && 'macos-26' || 'ubuntu-latest' }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - uses: actions/setup-java@v5
+        if: matrix.platform == 'android'
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Select Xcode 26.6
+        if: matrix.platform == 'ios'
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+          xcodebuild -version
+
+      # `prepare` builds lib/ and downloads the bundled iOS SDK.
+      - run: npm ci
+
+      - name: Build the smoke app
+        env:
+          EZOIC_SMOKE_INCLUDE_CMP: ${{ matrix.include-cmp }}
+        run: scripts/smoke-app.sh ${{ matrix.variant }} "$RUNNER_TEMP/smoke" ${{ matrix.platform }}

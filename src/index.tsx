@@ -163,6 +163,15 @@ export const EzoicAds = {
     NativeEzoicAds.resetConsent();
   },
   /**
+   * Whether the built-in CMP is in this app: `true` unless the app's
+   * `package.json` sets `"ezoic": { "includeCmp": false }` (see README
+   * "Using your own CMP"). Without it the SDK behaves as with
+   * `cmpEnabled: false`. Safe to call before `initialize`.
+   */
+  isBuiltInCmpIncluded(): Promise<boolean> {
+    return NativeEzoicAds.isBuiltInCmpIncluded();
+  },
+  /**
    * Describes the app's content to bidders, replacing any previous value.
    * Call with no argument (or both fields unset) to clear it. Safe to call
    * before `initialize`.

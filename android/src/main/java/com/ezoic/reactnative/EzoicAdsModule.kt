@@ -22,7 +22,6 @@ import com.ezoic.ads.sdk.adunits.EzoicRewardedAdListenerAdapter
 import com.ezoic.ads.sdk.core.EzoicAds
 import com.ezoic.ads.sdk.core.EzoicConfiguration
 import com.ezoic.ads.sdk.core.EzoicError
-import com.ezoic.ads.sdk.privacy.cmp.CmpError
 import com.ezoic.ads.sdk.privacy.cmp.ConsentDecisionType
 import com.ezoic.ads.sdk.privacy.cmp.ConsentOutcome
 import java.util.concurrent.ConcurrentHashMap
@@ -179,6 +178,10 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
 
   override fun resetConsent() {
     UiThreadUtil.runOnUiThread { EzoicAds.instance.resetConsent() }
+  }
+
+  override fun isBuiltInCmpIncluded(promise: Promise) {
+    promise.resolve(EzoicAds.instance.isBuiltInCmpIncluded)
   }
 
   override fun setAppContent(language: String?, genre: String?) {
@@ -634,11 +637,12 @@ class EzoicAdsModule(reactContext: ReactApplicationContext) :
   }
 
   /**
-   * `Failed.error` is an `EzoicError` through `EzoicAds` and a `CmpError` from
-   * the CMP itself; both carry the same numeric codes.
+   * `Failed.error` through `EzoicAds` is always an `EzoicError`; the CMP's own
+   * error type never reaches it. Nothing here may reference a CMP class: the
+   * CMP artifact is absent when the app sets `"ezoic": { "includeCmp": false }`.
    */
   private fun Exception.consentErrorCode(): Int =
-    (this as? EzoicError)?.code ?: (this as? CmpError)?.code ?: UNKNOWN_ERROR_CODE
+    (this as? EzoicError)?.code ?: UNKNOWN_ERROR_CODE
 
   private fun consentTypeMap(type: String): WritableMap =
     Arguments.createMap().apply { putString("type", type) }

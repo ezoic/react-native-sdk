@@ -11,6 +11,16 @@ import EzoicAdsSDKBinary
   /// are presented from (`RCTPresentedViewController()`). Called on main.
   @objc public var hostViewControllerProvider: (() -> UIViewController?)?
 
+  override public init() {
+    #if EZOIC_INCLUDE_CMP
+    // A static link only loads object files something references. This class
+    // is always linked (the module creates it), so referencing the provider
+    // global here makes the linker load ios/EzoicCmpLink.swift and the CMP.
+    _ = _ezoicBuiltInCmpProviderClass
+    #endif
+    super.init()
+  }
+
   /// Loaded rewarded ads awaiting `show`, keyed by ad unit id.
   private var rewardedAds: [Int: EzoicRewardedAd] = [:]
 
@@ -113,6 +123,12 @@ import EzoicAdsSDKBinary
         }
       }
     }
+  }
+
+  /// Whether the built-in CMP is linked into the app (`false` when the app's
+  /// package.json sets `"ezoic": { "includeCmp": false }`).
+  @objc public static func isBuiltInCmpIncluded() -> Bool {
+    return EzoicAds.isBuiltInCmpIncluded
   }
 
   @objc public func setGDPRConsent(_ applies: Bool, consentString: String?) {

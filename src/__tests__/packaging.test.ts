@@ -2,8 +2,8 @@ import { describe, expect, it } from '@jest/globals';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-// Both packages ship from one tag at one version, and the CMP framework the ads
-// package bundles must be the one the CMP package bundles.
+// Both packages ship from one tag at one version, and the core and CMP
+// frameworks the ads package bundles must be the ones the CMP package bundles.
 
 const root = join(__dirname, '..', '..');
 const read = (...parts: string[]) => readFileSync(join(root, ...parts), 'utf8');
@@ -30,12 +30,16 @@ describe('package pins', () => {
     expect(cmp.ezoic.iosSdk.version).toBe(ads.ezoic.iosSdk.version);
   });
 
-  it('bundles both frameworks in the ads package and only the CMP in the CMP package', () => {
+  it('bundles core, ads and CMP in the ads package and core and CMP in the CMP package', () => {
     expect(Object.keys(ads.ezoic.iosSdk.sha256)).toEqual([
+      'EzoicConsentCoreBinary',
       'EzoicAdsSDKBinary',
       'EzoicCmpSDKBinary',
     ]);
-    expect(Object.keys(cmp.ezoic.iosSdk.sha256)).toEqual(['EzoicCmpSDKBinary']);
+    expect(Object.keys(cmp.ezoic.iosSdk.sha256)).toEqual([
+      'EzoicConsentCoreBinary',
+      'EzoicCmpSDKBinary',
+    ]);
   });
 
   it('pins every framework to a sha256 or the release placeholder', () => {
@@ -47,11 +51,14 @@ describe('package pins', () => {
     }
   });
 
-  it('pins the same CMP framework in both packages', () => {
-    expect(cmp.ezoic.iosSdk.sha256.EzoicCmpSDKBinary).toBe(
-      ads.ezoic.iosSdk.sha256.EzoicCmpSDKBinary
-    );
-  });
+  it.each(['EzoicConsentCoreBinary', 'EzoicCmpSDKBinary'])(
+    'pins the same %s in both packages',
+    (framework) => {
+      expect(cmp.ezoic.iosSdk.sha256[framework]).toBe(
+        ads.ezoic.iosSdk.sha256[framework]
+      );
+    }
+  );
 
   it('pins the same native Android SDK release in both packages', () => {
     const version = (gradle: string, artifact: string) =>

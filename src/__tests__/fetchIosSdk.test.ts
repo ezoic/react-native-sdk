@@ -18,6 +18,7 @@ describe('fetch-ios-sdk', () => {
   it('names the dist release asset after the framework without "Binary"', () => {
     expect(assetName('EzoicAdsSDKBinary')).toBe('EzoicAdsSDK');
     expect(assetName('EzoicCmpSDKBinary')).toBe('EzoicCmpSDK');
+    expect(assetName('EzoicConsentCoreBinary')).toBe('EzoicConsentCore');
   });
 
   it('downloads the -cocoapods zip from the dist GitHub release', () => {
@@ -29,17 +30,19 @@ describe('fetch-ios-sdk', () => {
     );
   });
 
-  it('reads both framework pins of the ads package', () => {
+  it('reads the core, ads and CMP framework pins of the ads package', () => {
     const pins = readPins(root);
     expect(pins.frameworks.map((f: { name: string }) => f.name)).toEqual([
+      'EzoicConsentCoreBinary',
       'EzoicAdsSDKBinary',
       'EzoicCmpSDKBinary',
     ]);
   });
 
-  it('reads only the CMP framework pin of the CMP package', () => {
+  it('reads the core and CMP framework pins of the CMP package', () => {
     const pins = readPins(join(root, 'cmp'));
     expect(pins.frameworks.map((f: { name: string }) => f.name)).toEqual([
+      'EzoicConsentCoreBinary',
       'EzoicCmpSDKBinary',
     ]);
   });

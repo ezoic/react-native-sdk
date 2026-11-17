@@ -31,18 +31,20 @@ npm install @ezoic/react-native-cmp-sdk
 cd ios && pod install
 ```
 
-- **iOS:** the native `EzoicCmpSDK` framework (a static XCFramework with no
-  dependencies) is bundled in this npm package. No `Podfile` changes are needed.
+- **iOS:** the native `EzoicCmpSDK` framework and the consent core it links,
+  `EzoicConsentCore` (static XCFrameworks with no dependencies), are bundled in
+  this npm package. No `Podfile` changes are needed.
 - **Android:** the package depends on `com.ezoic.sdk:ezoic-cmp-sdk` from Maven
-  Central.
+  Central (which brings in `com.ezoic.sdk:ezoic-consent-core`).
 
-Android uses `ezoic-cmp-sdk` 1.22.3 and iOS bundles `EzoicCmpSDK` 1.23.2 in
-`@ezoic/react-native-cmp-sdk` 1.22.3.
+Android uses `ezoic-cmp-sdk` 1.24.0 and iOS bundles `EzoicCmpSDK` and
+`EzoicConsentCore` 1.24.0 in `@ezoic/react-native-cmp-sdk` 1.24.0.
 
 If your app also installs `@ezoic/react-native-sdk` (not recommended, see
 above), **keep both packages at the same version.** On iOS the ads pod then uses this
-package's framework instead of its own copy, and on Android Gradle resolves one
-`ezoic-cmp-sdk`.
+package's frameworks instead of its own copies, and on Android Gradle resolves one
+`ezoic-cmp-sdk`. That package's `"ezoic": { "includeCmp": false }` setting has
+no effect while this package is installed: this package is the CMP.
 
 ## Usage
 

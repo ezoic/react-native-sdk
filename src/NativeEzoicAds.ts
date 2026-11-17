@@ -60,6 +60,7 @@ export interface Spec extends TurboModule {
   isConsentRequired(): Promise<boolean | null>;
   isPrivacyOptionsRequired(): Promise<boolean | null>;
   resetConsent(): void;
+  isBuiltInCmpIncluded(): Promise<boolean>;
   setAppContent(language: string | null, genre: string | null): void;
   loadRewardedAd(adUnitIdentifier: string): Promise<void>;
   showRewardedAd(

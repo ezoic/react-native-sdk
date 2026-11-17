@@ -108,6 +108,10 @@ static NSString *const kEzoicInterstitialEvent = @"EzoicInterstitialAdEvent";
   [_impl resetConsent];
 }
 
+- (void)isBuiltInCmpIncluded:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
+  resolve(@([EzoicAdsImpl isBuiltInCmpIncluded]));
+}
+
 - (void)setAppContent:(NSString *_Nullable)language genre:(NSString *_Nullable)genre {
   [_impl setAppContent:language genre:genre];
 }

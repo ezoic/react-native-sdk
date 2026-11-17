@@ -27,6 +27,39 @@ buildscript {
 }
 
 
+// Whether to include the built-in Ezoic CMP (com.ezoic.sdk:ezoic-cmp-sdk). Read
+// from the app's package.json, the same flag the iOS podspec reads:
+//
+//   "ezoic": { "includeCmp": false }
+//
+// Absent or true includes it. React Native apps keep package.json one level
+// above their android/ project (the root Gradle project). When it can't be
+// found or parsed, the CMP stays in (the default).
+def ezoicIncludeCmp = {
+  def appPackageJson = new File(rootProject.projectDir, "../package.json")
+  if (!appPackageJson.isFile()) {
+    return true
+  }
+  def app
+  try {
+    app = new groovy.json.JsonSlurper().parse(appPackageJson)
+  } catch (Exception e) {
+    logger.warn("EzoicReactNativeSdk: could not read ${appPackageJson}, so the built-in CMP is included: ${e.message}")
+    return true
+  }
+  if (!(app instanceof Map) || !(app.ezoic instanceof Map) || app.ezoic.includeCmp != false) {
+    return true
+  }
+  def dependsOnCmpPackage = ["dependencies", "peerDependencies", "devDependencies"].any { key ->
+    app[key] instanceof Map && app[key].containsKey("@ezoic/react-native-cmp-sdk")
+  }
+  if (dependsOnCmpPackage) {
+    logger.warn("EzoicReactNativeSdk: \"ezoic\": { \"includeCmp\": false } has no effect while the app " +
+      "depends on @ezoic/react-native-cmp-sdk, which contains the CMP.")
+  }
+  return false
+}()
+
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
@@ -65,10 +98,17 @@ android {
 dependencies {
   implementation "com.facebook.react:react-android"
 
-  // Native Ezoic Ads SDK (resolved from Maven Central). Brings in the Ezoic CMP
-  // (com.ezoic.sdk:ezoic-cmp-sdk), Google Mobile Ads and Prebid transitively. Requires mavenCentral() + google() in the
-  // consuming app's repositories (the RN template provides both).
-  implementation "com.ezoic.sdk:ezoic-ads-sdk:1.22.3"
+  // Native Ezoic Ads SDK (resolved from Maven Central). Brings in the consent
+  // core (com.ezoic.sdk:ezoic-consent-core), the built-in CMP
+  // (com.ezoic.sdk:ezoic-cmp-sdk), Google Mobile Ads and Prebid transitively.
+  // Requires mavenCentral() + google() in the consuming app's repositories (the
+  // RN template provides both). With `"includeCmp": false` (see the top of this
+  // file) the CMP is left out; the SDK then behaves as with cmpEnabled = false.
+  implementation("com.ezoic.sdk:ezoic-ads-sdk:1.24.0") {
+    if (!ezoicIncludeCmp) {
+      exclude group: "com.ezoic.sdk", module: "ezoic-cmp-sdk"
+    }
+  }
 
   // The native-ad wrapper references GMA's NativeAdView/MediaView/NativeAd
   // types at compile time. The Ezoic SDK POM scopes Google Mobile Ads at

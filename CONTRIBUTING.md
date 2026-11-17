@@ -20,7 +20,8 @@ package's iOS framework.
 
 - Android: `android/build.gradle` (`ezoic-ads-sdk`) and
   `cmp/android/build.gradle` (`ezoic-cmp-sdk`).
-- iOS: `ezoic.iosSdk` in `package.json` and `cmp/package.json`: the native
+- iOS: `ezoic.iosSdk` in `package.json` (core, ads, CMP) and
+  `cmp/package.json` (core, CMP): the native
   version and the sha256 of each bundled `-cocoapods` XCFramework zip from the
   `ezoic-swift-sdk-dist` GitHub release. After bumping `version`, fill the
   sha256s from the release:
@@ -36,7 +37,10 @@ package's iOS framework.
 
 `scripts/smoke-app.sh <ads|cmp|both> <workdir> [android] [ios]` packs the
 packages, creates a React Native app that installs them, builds it, and reports
-how many copies of the native CMP the app contains (expected: one). For
+how many copies of the native CMP the app contains, failing unless it is one.
+`EZOIC_SMOKE_INCLUDE_CMP=false` sets `"ezoic": { "includeCmp": false }` in the
+app's `package.json` and, with `ads`, expects no CMP at all (CI builds `ads`
+both ways on Android and iOS). For
 unreleased native builds, set `EZOIC_IOS_SDK_ZIP_DIR` to a directory with the
 `-cocoapods` zips and their `.sha256` files, and `EZOIC_SMOKE_MAVEN_LOCAL=1` to
 resolve Android artifacts from the local Maven repository.

@@ -26,6 +26,7 @@ jest.mock('../NativeEzoicAds', () => ({
     isPrivacyOptionsRequired: jest.fn(),
     setAppContent: jest.fn(),
     resetConsent: jest.fn(),
+    isBuiltInCmpIncluded: jest.fn(),
   },
 }));
 
@@ -47,6 +48,9 @@ const privacyOptionsMock = NativeEzoicAds.isPrivacyOptionsRequired as jest.Mock<
 >;
 const appContentMock = NativeEzoicAds.setAppContent as jest.Mock;
 const resetMock = NativeEzoicAds.resetConsent as jest.Mock;
+const builtInCmpMock = NativeEzoicAds.isBuiltInCmpIncluded as jest.Mock<
+  () => Promise<boolean>
+>;
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -306,6 +310,14 @@ describe('EzoicAds.resetConsent', () => {
   it('forwards to native', () => {
     EzoicAds.resetConsent();
     expect(resetMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('EzoicAds.isBuiltInCmpIncluded', () => {
+  it.each([true, false])('resolves %s from native', async (value) => {
+    builtInCmpMock.mockResolvedValue(value);
+    await expect(EzoicAds.isBuiltInCmpIncluded()).resolves.toBe(value);
+    expect(builtInCmpMock).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -2,11 +2,12 @@ require "json"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 ios_sdk = package["ezoic"]["iosSdk"]
-cmp_framework = "ios/Frameworks/EzoicCmpSDKBinary.xcframework"
+frameworks = %w[EzoicConsentCoreBinary EzoicCmpSDKBinary].map { |name| "ios/Frameworks/#{name}.xcframework" }
 
-unless File.exist?(File.join(__dir__, cmp_framework, "Info.plist"))
-  raise Pod::Informative, "EzoicReactNativeCmpSdk: #{cmp_framework} is missing. " \
-    "It ships in the npm package; in a git checkout run " \
+missing = frameworks.reject { |framework| File.exist?(File.join(__dir__, framework, "Info.plist")) }
+unless missing.empty?
+  raise Pod::Informative, "EzoicReactNativeCmpSdk: #{missing.join(", ")} missing. " \
+    "They ship in the npm package; in a git checkout run " \
     "`node ../scripts/fetch-ios-sdk.js --package .` in #{__dir__} to download EzoicCmpSDK #{ios_sdk["version"]}"
 end
 
@@ -24,15 +25,16 @@ Pod::Spec.new do |s|
   s.source_files = "ios/**/*.{h,m,mm,swift,cpp}"
   s.private_header_files = "ios/**/*.h"
   # exclude_files also filters vendored_frameworks, so exclude only the
-  # contents of the xcframework, not the bundle itself.
+  # contents of the xcframeworks, not the bundles themselves.
   s.exclude_files = "ios/Frameworks/*.xcframework/**/*"
 
   install_modules_dependencies(s)
 
-  # Native Ezoic CMP (vends the `EzoicCmpSDKBinary` module), bundled in the npm
-  # package by scripts/fetch-ios-sdk.js. A static framework with no pod
-  # dependencies. When the app also has @ezoic/react-native-sdk, that pod
-  # depends on this one for the framework instead of vendoring its own copy.
-  s.vendored_frameworks = cmp_framework
+  # Native Ezoic CMP (vends the `EzoicCmpSDKBinary` module, which re-exports
+  # the `EzoicConsentCoreBinary` it imports), bundled in the npm package by
+  # scripts/fetch-ios-sdk.js. Static frameworks with no pod dependencies. When
+  # the app also has @ezoic/react-native-sdk, that pod depends on this one for
+  # both frameworks instead of vendoring its own copies.
+  s.vendored_frameworks = frameworks
   s.swift_version = "5.9"
 end

@@ -4,8 +4,8 @@
  * package's package.json `ezoic.iosSdk`, verifies each one's SHA-256 and
  * extracts them to <package>/ios/Frameworks, where the podspec vendors them.
  *
- * `ezoic.iosSdk.sha256` maps each framework (`EzoicAdsSDKBinary`,
- * `EzoicCmpSDKBinary`) to the SHA-256 of its dist release asset
+ * `ezoic.iosSdk.sha256` maps each framework (`EzoicConsentCoreBinary`,
+ * `EzoicAdsSDKBinary`, `EzoicCmpSDKBinary`) to the SHA-256 of its dist release asset
  * `<framework without "Binary">-<version>-cocoapods.xcframework.zip`.
  *
  *   node scripts/fetch-ios-sdk.js          download if missing or out of date

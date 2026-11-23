@@ -112,7 +112,7 @@ dependencies {
   // Requires mavenCentral() + google() in the consuming app's repositories (the
   // RN template provides both). With `"includeCmp": false` (see the top of this
   // file) the CMP is left out; the SDK then behaves as with cmpEnabled = false.
-  implementation("com.ezoic.sdk:ezoic-ads-sdk:1.25.0") {
+  implementation("com.ezoic.sdk:ezoic-ads-sdk:1.26.0") {
     if (!ezoicIncludeCmp) {
       exclude group: "com.ezoic.sdk", module: "ezoic-cmp-sdk"
     }

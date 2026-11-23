@@ -16,15 +16,15 @@ package) and Android (`com.ezoic.sdk:ezoic-ads-sdk`, via Maven Central). It expo
 ## Installation
 
 ```sh
-npm install @ezoic/react-native-sdk@1.25.0
+npm install @ezoic/react-native-sdk@1.26.0
 ```
 
 ### iOS
 
 The native `EzoicAdsSDK` binary framework, the consent core it links
 (`EzoicConsentCore`) and the built-in CMP (`EzoicCmpSDK`) are bundled inside
-this npm package (`@ezoic/react-native-sdk` 1.25.0 bundles all three at
-1.25.0), so CocoaPods does not download an `EzoicAdsSDK` pod and the CocoaPods trunk going read-only
+this npm package (`@ezoic/react-native-sdk` 1.26.0 bundles all three at
+1.26.0), so CocoaPods does not download an `EzoicAdsSDK` pod and the CocoaPods trunk going read-only
 does not affect React Native apps. `pod install` still pulls its dependencies
 `PrebidMobile`, `Google-Mobile-Ads-SDK` and `AmazonPublisherServicesSDK` from
 CocoaPods as before; no `Podfile` changes are needed when upgrading. If
@@ -66,7 +66,7 @@ or lists an identifier with uppercase letters (Apple ignores those).
 
 ### Android
 
-The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.25.0 from Maven Central,
+The package depends on `com.ezoic.sdk:ezoic-ads-sdk` 1.26.0 from Maven Central,
 which brings in the consent core (`com.ezoic.sdk:ezoic-consent-core`), the
 Ezoic CMP (`com.ezoic.sdk:ezoic-cmp-sdk`, unless
 [removed](#removing-the-built-in-cmp)), Google Mobile Ads (`play-services-ads`) 25.5.0 and Google's
@@ -613,6 +613,17 @@ an unlabelled pageview.
   - `.getNextAdTagUrl()` → `Promise<string | null>`
   - `.reportImpression({ revenueUsd? })` → `Promise<void>`
   - `.destroy()` → `Promise<void>`
+
+## Changes in 1.26.0
+
+- Native Android and iOS SDKs are now 1.26.0. The ads and companion CMP
+  packages use matching versions and bundle the matching iOS frameworks.
+- Banner and outstream bid requests now tell bidders where the ad sits on
+  screen (OpenRTB `banner.pos`). The SDK measures the view when it asks for
+  bids: in view is above the fold, off screen (further down a scroll view,
+  another page) is below the fold, and an anchor reports header or footer. A
+  view not yet in a window sends no position. Nothing to change in your app;
+  ads placed in view get the stronger signal.
 
 ## Changes in 1.25.0
 

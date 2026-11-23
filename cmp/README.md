@@ -27,7 +27,7 @@ for any other domain it stays off and writes nothing.
 ## Installation
 
 ```sh
-npm install @ezoic/react-native-cmp-sdk@1.25.0
+npm install @ezoic/react-native-cmp-sdk@1.26.0
 cd ios && pod install
 ```
 
@@ -37,8 +37,8 @@ cd ios && pod install
 - **Android:** the package depends on `com.ezoic.sdk:ezoic-cmp-sdk` from Maven
   Central (which brings in `com.ezoic.sdk:ezoic-consent-core`).
 
-Android uses `ezoic-cmp-sdk` 1.25.0 and iOS bundles `EzoicCmpSDK` and
-`EzoicConsentCore` 1.25.0 in `@ezoic/react-native-cmp-sdk` 1.25.0.
+Android uses `ezoic-cmp-sdk` 1.26.0 and iOS bundles `EzoicCmpSDK` and
+`EzoicConsentCore` 1.26.0 in `@ezoic/react-native-cmp-sdk` 1.26.0.
 
 If your app also installs `@ezoic/react-native-sdk` (not recommended, see
 above), **keep both packages at the same version.** On iOS the ads pod then uses this
